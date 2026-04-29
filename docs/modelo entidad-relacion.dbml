@@ -19,12 +19,13 @@ Table business {
 
 // Tabla intermedia para gestionar la multitenencia
 Table user_business {
+  id integer [pk, increment]
   user_id uuid [ref: > users.id]
   business_id uuid [ref: > business.id]
   role_in_business varchar // "Admin", "Editor", "Viewer"
 
   indexes {
-    (user_id, business_id) [pk]
+    (user_id, business_id) [unique]
   }
 }
 
