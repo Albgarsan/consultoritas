@@ -1,15 +1,71 @@
-version: '3.8'
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: consultoritas_redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+    container_name: consultoritas_backend
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+    container_name: consultoritas_worker
     env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: celery -A core worker -l info
+    restart: unless-stopped
+
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+    container_name: consultoritas_frontend
+    env_file: .env
     volumes:
       - ./frontend:/app
+      - /app/node_modules
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: consultoritas_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  redis_data:
