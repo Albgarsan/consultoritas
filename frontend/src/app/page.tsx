@@ -1,65 +1,97 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Header } from '@/components/landing/header';
+import { HeroSection } from '@/components/landing/hero';
+import { TeamSection } from '@/components/landing/team';
+import { ContactSection } from '@/components/landing/contact';
+import { AboutSection } from '@/components/landing/about';
+import { AppointmentModal } from '@/components/shared/modals/appointment-modal';
+import { Calculator, Briefcase, Scale, Gavel, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+export default function LandingPage() {
+  const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
+  const router = useRouter();
+
+  const handleNavigate = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const services = [
+    { icon: Calculator, title: 'Asesoría Fiscal', desc: 'Impuestos, IVA y planificación trimestral.' },
+    { icon: Briefcase, title: 'Asesoría Laboral', desc: 'Nóminas, contratos y seguridad social.' },
+    { icon: Scale, title: 'Asesoría Contable', desc: 'Balances, cuentas anuales y libros oficiales.' },
+    { icon: Gavel, title: 'Asesoría Judicial', desc: 'Defensa legal y representación en tribunales.' },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-white font-sans selection:bg-accent/30">
+      <Header onNavigate={handleNavigate} onAccessClick={() => router.push('/login')} />
+
+      <HeroSection onAppointmentClick={() => setAppointmentModalOpen(true)} />
+
+      <AboutSection />
+
+      {/* Services con Estética Card Premium */}
+      <section id="services" className="py-24 px-4 bg-gradient-to-b from-white to-slate-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-sm font-bold text-primary tracking-[0.3em] uppercase mb-2">Servicios 360º</h2>
+            <h3 className="text-4xl font-bold text-slate-900">Soluciones para tu empresa</h3>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {services.map((s, i) => (
+              <motion.div
+                key={s.title}
+                whileHover={{ y: -10 }}
+                className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl transition-all"
+              >
+                <div className="size-14 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mb-6">
+                  <s.icon className="size-7" />
+                </div>
+                <h4 className="text-xl font-bold mb-3 text-slate-900">{s.title}</h4>
+                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      <TeamSection />
+
+      <ContactSection />
+
+      {/* Footer corporativo elegante */}
+      <footer className="bg-slate-950 text-white py-20 px-4">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12 border-b border-white/5 pb-16">
+          <div className="col-span-2">
+            <h5 className="text-2xl font-bold mb-6">Consultoritas</h5>
+            <p className="text-slate-400 max-w-sm">
+              Llevamos más de 30 años ofreciendo soluciones legales y fiscales de alta fidelidad en el corazón de Sevilla Este.
+            </p>
+          </div>
+          <div>
+            <h6 className="font-bold uppercase text-xs tracking-widest text-accent mb-6">Legal</h6>
+            <ul className="space-y-4 text-sm text-slate-400">
+              <li>Aviso Legal</li>
+              <li>Privacidad</li>
+              <li>Cookies</li>
+            </ul>
+          </div>
+          <div>
+            <h6 className="font-bold uppercase text-xs tracking-widest text-accent mb-6">Contacto</h6>
+            <p className="text-sm text-slate-400">info@consultoritas.es</p>
+            <p className="text-sm text-slate-400 mt-2">+34 954 123 456</p>
+          </div>
         </div>
-      </main>
+        <div className="text-center pt-10 text-xs text-slate-600 uppercase tracking-widest">
+          © 2026 Consultoritas S.L. — Todos los derechos reservados.
+        </div>
+      </footer>
+
+      <AppointmentModal open={appointmentModalOpen} onOpenChange={setAppointmentModalOpen} />
     </div>
   );
 }
