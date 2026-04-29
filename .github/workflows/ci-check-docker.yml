@@ -2,9 +2,9 @@ name: CI Checks - Docker Compose
 
 on:
   pull_request:
-    branches: [main, develop"]
+    branches: [main, develop]
   push:
-    branches: [main, develop"]
+    branches: [main, develop]
 
 jobs:
   compose-validate:
