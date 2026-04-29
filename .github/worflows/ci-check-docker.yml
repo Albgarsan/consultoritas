@@ -1,0 +1,23 @@
+name: CI Checks - Docker Compose
+
+on:
+  pull_request:
+    branches: [main, develop"]
+  push:
+    branches: [main, develop"]
+
+jobs:
+  compose-validate:
+    name: Docker Compose validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare env files
+        run: |
+          cp .env.example .env || echo "No .env.example"
+          cp .env.prod.example .env.prod || echo "No .env.prod.example"
+
+      - name: Validate dev compose
+        run: docker compose -f docker-compose.yml config
