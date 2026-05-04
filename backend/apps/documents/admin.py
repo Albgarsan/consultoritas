@@ -5,9 +5,9 @@ from .models import Document, InvoiceData
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
-    list_display = ("id", "filename", "document_type", "status", "business")
-    list_filter = ("status", "document_type")
-    search_fields = ("filename",)
+    list_display = ("id", "file_name", "doc_type", "status", "business")
+    list_filter = ("status",)
+    search_fields = ("file_name",)
 
 
 @admin.register(InvoiceData)

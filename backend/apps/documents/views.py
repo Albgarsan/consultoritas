@@ -12,6 +12,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Document.objects.filter(business__users__user=self.request.user)
 
+    def perform_create(self, serializer):
+        from apps.business.models import Business
+
+        business = Business.objects.filter(users__user=self.request.user).first()
+        serializer.save(business=business)
+
 
 class InvoiceDataViewSet(viewsets.ModelViewSet):
     serializer_class = InvoiceDataSerializer

@@ -11,4 +11,4 @@ class BusinessAdmin(admin.ModelAdmin):
 
 @admin.register(UserBusiness)
 class UserBusinessAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "business", "role")
+    list_display = ("id", "user", "business", "role_in_business")
