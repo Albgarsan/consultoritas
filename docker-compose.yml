@@ -12,8 +12,7 @@ services:
     restart: unless-stopped
 
   backend:
-    build:
-      context: ./backend
+    build: ./backend
     container_name: consultoritas_backend
     env_file: .env
     depends_on:
@@ -21,6 +20,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - media_volume:/app/media
     ports:
       - "8000:8000"
     command: >
@@ -29,8 +29,7 @@ services:
     restart: unless-stopped
 
   worker:
-    build:
-      context: ./backend
+    build: ./backend
     container_name: consultoritas_worker
     env_file: .env
     depends_on:
@@ -38,12 +37,24 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - media_volume:/app/media
     command: celery -A core worker -l info
     restart: unless-stopped
 
+  celery_beat:
+    build: ./backend
+    container_name: consultoritas_beat
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: celery -A core beat -l info
+    restart: unless-stopped
+
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     container_name: consultoritas_frontend
     env_file: .env
     volumes:
@@ -69,3 +80,4 @@ services:
 
 volumes:
   redis_data:
+  media_volume:
