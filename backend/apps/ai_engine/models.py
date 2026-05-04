@@ -3,6 +3,7 @@ import uuid
 from apps.documents.models import Document
 from apps.users.models import User
 from django.db import models
+from pgvector.django import VectorField
 
 
 class Conversation(models.Model):
@@ -38,12 +39,6 @@ class Message(models.Model):
         db_table = "messages"
 
 
-try:
-    from pgvector.django import VectorField
-except ImportError:
-    VectorField = None
-
-
 class DocumentChunk(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     document = models.ForeignKey(
@@ -61,10 +56,7 @@ class VectorStore(models.Model):
     chunk = models.OneToOneField(
         DocumentChunk, on_delete=models.CASCADE, related_name="vector"
     )
-    if VectorField:
-        embedding = VectorField(dimensions=768)
-    else:
-        embedding = models.JSONField()
+    embedding = VectorField(dimensions=768)
 
     class Meta:
         db_table = "vector_store"
