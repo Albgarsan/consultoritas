@@ -22,7 +22,14 @@ class OCRService:
     @staticmethod
     def process_document(document: Document) -> InvoiceData:
         try:
-            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                logger.error("GEMINI_API_KEY no está configurada o está vacía")
+                raise ValueError(
+                    "Configuración de API requerida: GEMINI_API_KEY no encontrada"
+                )
+
+            genai.configure(api_key=api_key)
             model = genai.GenerativeModel("gemini-1.5-flash")
 
             path_or_url = document.storage_path
@@ -33,10 +40,6 @@ class OCRService:
                 response = requests.get(path_or_url, timeout=10)
                 response.raise_for_status()
                 content = response.content
-            elif path_or_url.startswith("http://"):
-                raise ValueError(
-                    "Insecure HTTP connections are not allowed. Please use HTTPS."
-                )
             else:
                 with open(path_or_url, "rb") as doc_file:
                     content = doc_file.read()
