@@ -29,10 +29,14 @@ class OCRService:
             content = None
             mime_type = mimetypes.guess_type(path_or_url)[0] or "application/pdf"
 
-            if path_or_url.startswith(("http://", "https://")):
+            if path_or_url.startswith("https://"):
                 response = requests.get(path_or_url, timeout=10)
                 response.raise_for_status()
                 content = response.content
+            elif path_or_url.startswith("http://"):
+                raise ValueError(
+                    "Insecure HTTP connections are not allowed. Please use HTTPS."
+                )
             else:
                 with open(path_or_url, "rb") as doc_file:
                     content = doc_file.read()

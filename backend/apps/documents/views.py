@@ -14,12 +14,15 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         from apps.business.models import Business
+        from rest_framework.exceptions import ValidationError
 
         business = Business.objects.filter(users__user=self.request.user).first()
+        if business is None:
+            raise ValidationError("You must belong to a business to upload documents.")
         serializer.save(business=business)
 
 
-class InvoiceDataViewSet(viewsets.ModelViewSet):
+class InvoiceDataViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = InvoiceDataSerializer
     permission_classes = [IsAuthenticated]
 
