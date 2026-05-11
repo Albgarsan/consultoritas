@@ -16,8 +16,8 @@ export function Header({ onNavigate, onAccessClick }: HeaderProps) {
 
   const menuItems = [
     { label: 'Conócenos', id: 'about' },
-    { label: 'Equipo', id: 'team' },
     { label: 'Servicios', id: 'services' },
+    { label: 'Equipo', id: 'team' },
     { label: 'Contacto', id: 'contact' },
   ];
 

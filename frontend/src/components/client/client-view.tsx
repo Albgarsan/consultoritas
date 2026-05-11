@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FiscalHealthCards } from "../shared/stat-cards"
 import { IncomeExpenseChart } from "../shared/chart/revenue"
 import { IVAComparisonChart } from "../shared/chart/tax-comparison"
 import { AccountingCalendar } from "@/components/shared/calendar"
+import { TaxStatus } from "@/components/shared/tax-status"
 import { PremiumAIChat } from "@/components/shared/ai/full-chat"
 import { NovedadesFiscales } from "../shared/news-feed"
 import { Button } from "@/components/ui/button"
+import { apiFetch, type DocumentoFacturacion, type TaxCalendarEntry } from "@/lib/api"
 import {
   Select,
   SelectContent,
@@ -19,12 +21,21 @@ import { Upload, Calendar, FileText } from "lucide-react"
 
 interface DashboardViewProps {
   onNavigate: (view: string) => void
+  user?: { first_name?: string; email?: string } | null
+  documents?: DocumentoFacturacion[]
+  stats?: any
+  calendarEntries?: TaxCalendarEntry[]
+  isLoading?: boolean
 }
 
 type Period = "trimestre" | "semestre" | "anual"
 
-export function DashboardView({ onNavigate }: DashboardViewProps) {
+export function DashboardView({ onNavigate, user, documents = [], stats, calendarEntries = [], isLoading = false }: DashboardViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("trimestre")
+
+  const validatedDocuments = documents.filter(
+    (doc) => (doc.status || "").toLowerCase() === "procesado"
+  )
 
   return (
     <div className="space-y-6">
@@ -32,7 +43,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold text-foreground tracking-tight">
-            Bienvenida de nuevo, María
+            Bienvenida de nuevo, {user?.first_name || "Cliente"}
           </h2>
           <p className="text-muted-foreground">
             Este es el resumen de tu salud fiscal. Todo bajo control.
@@ -50,7 +61,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
               <SelectItem value="anual">Último Año</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => onNavigate("documentos")} className="gap-2">
+          <Button onClick={() => onNavigate("facturacion")} className="gap-2">
             <Upload className="size-4" />
             Subir Factura
           </Button>
@@ -58,57 +69,25 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* Fiscal Health Cards */}
-      <FiscalHealthCards />
+      <FiscalHealthCards stats={stats} />
 
       {/* Novedades Fiscales */}
       <NovedadesFiscales />
 
       {/* Charts Grid - Ingresos/Gastos and IVA Comparison */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <IncomeExpenseChart period={selectedPeriod} />
-        <IVAComparisonChart period={selectedPeriod} />
+        <IncomeExpenseChart period={selectedPeriod} stats={stats} isLoading={isLoading} />
+        <IVAComparisonChart period={selectedPeriod} stats={stats} isLoading={isLoading} />
       </div>
 
       {/* Accounting Calendar and AI Chat */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <AccountingCalendar />
-        <PremiumAIChat />
+        <AccountingCalendar calendarEntries={calendarEntries} useRealCalendar />
+        <TaxStatus documents={validatedDocuments} calendarEntries={calendarEntries} useRealCalendar />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Button
-          variant="outline"
-          className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => onNavigate("documentos")}
-        >
-          <Upload className="size-5 text-primary" />
-          <span className="text-sm">Subir Documento</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => onNavigate("documentos")}
-        >
-          <FileText className="size-5 text-accent" />
-          <span className="text-sm">Ver Facturas</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => onNavigate("facturacion")}
-        >
-          <Calendar className="size-5 text-emerald-600" />
-          <span className="text-sm">Calendario Fiscal</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => onNavigate("ajustes")}
-        >
-          <FileText className="size-5 text-amber-600" />
-          <span className="text-sm">Mis Datos</span>
-        </Button>
+      <div className="grid gap-6 lg:grid-cols-1">
+        <PremiumAIChat />
       </div>
     </div>
   )

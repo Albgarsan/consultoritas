@@ -1,14 +1,25 @@
-'use client';
+"use client";
 
+import { useEffect, useState } from 'react'
+import { apiFetch } from '@/lib/api'
 import { motion } from 'framer-motion';
-import { Heart, TrendingUp, Cpu, Users, ShieldCheck } from 'lucide-react';
+import { Heart, Cpu } from 'lucide-react';
 
 export function AboutSection() {
-  const stats = [
-    { label: "Años de experiencia", value: "30+" },
-    { label: "Clientes activos", value: "500+" },
-    { label: "Modelos presentados", value: "10k+" },
-  ];
+  const [stats, setStats] = useState<Array<{ label: string; value: string }>>([])
+
+  useEffect(() => {
+    apiFetch('/api/users/stats/')
+      .then((res) => res.json())
+      .then((data) => {
+        setStats([
+          { label: 'Asesores registrados', value: String(data.advisors_count || 0) },
+          { label: 'Clientes registrados', value: String(data.clients_count || 0) },
+          { label: 'Empresas activas', value: String(data.businesses_count || 0) },
+        ])
+      })
+      .catch(() => setStats([]))
+  }, [])
 
   return (
     <section id="about" className="py-24 px-4 overflow-hidden">
@@ -31,12 +42,16 @@ export function AboutSection() {
             {/* Floating Stats Card */}
             <div className="absolute -bottom-10 -right-6 z-20 bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-50 hidden md:block">
               <div className="grid grid-cols-1 gap-6">
-                {stats.map((s) => (
+                {stats.length > 0 ? stats.map((s) => (
                   <div key={s.label} className="text-center border-b border-slate-100 last:border-0 pb-4 last:pb-0">
                     <p className="text-3xl font-extrabold text-primary">{s.value}</p>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{s.label}</p>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center text-slate-400 text-sm">
+                    Sin métricas sincronizadas.
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

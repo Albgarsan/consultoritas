@@ -1,13 +1,13 @@
 "use client"
 
-import { LayoutDashboard, FileText, Receipt, Sparkles, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Receipt, CalendarDays, Settings, LogOut } from "lucide-react"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { ConsultoritasLogo } from "@/components/layout/logo"
 
 export function ClientSidebar({ currentView, onNavigate, onLogout }: any) {
   const menu = [
     { id: "dashboard", label: "Mi Resumen", icon: LayoutDashboard },
-    { id: "documentos", label: "Mis Documentos", icon: FileText },
+    { id: "citas", label: "Mis Citas", icon: CalendarDays },
     { id: "facturacion", label: "Facturación", icon: Receipt },
   ]
 
