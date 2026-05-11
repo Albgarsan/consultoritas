@@ -17,6 +17,7 @@ export function ConsultoritasLogo({ variant = "full", className = "" }: Consulto
           src={logoUrl}
           alt="Consultoritas"
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-contain object-top"
         />
       </div>
@@ -30,8 +31,9 @@ export function ConsultoritasLogo({ variant = "full", className = "" }: Consulto
           <Image
             src={logoUrl}
             alt="Consultoritas"
-            fill
-            className="object-contain object-top"
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-contain object-top"
           />
         </div>
         <div className="flex flex-col">
@@ -53,8 +55,9 @@ export function ConsultoritasLogo({ variant = "full", className = "" }: Consulto
           <Image
             src={logoUrl}
             alt="Consultoritas"
-            fill
-            className="object-contain object-top"
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-contain object-top"
           />
         </div>
         <div className="flex flex-col">
@@ -77,6 +80,7 @@ export function ConsultoritasLogo({ variant = "full", className = "" }: Consulto
           src={logoUrl}
           alt="Consultoritas"
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-contain object-top"
         />
       </div>

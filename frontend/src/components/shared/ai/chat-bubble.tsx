@@ -15,14 +15,7 @@ interface Message {
   timestamp: Date
 }
 
-const initialMessages: Message[] = [
-  {
-    id: "1",
-    role: "assistant",
-    content: "Hola, soy tu Consultor IA. Estoy aquí para ayudarte con cualquier duda sobre tus impuestos, documentos o situación fiscal. ¿En qué puedo asistirte hoy?",
-    timestamp: new Date(),
-  },
-]
+const initialMessages: Message[] = []
 
 export function AIChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
@@ -55,29 +48,17 @@ export function AIChatWidget() {
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsTyping(true)
-
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "He revisado tu documentación fiscal. Para el IVA del primer trimestre, tienes un saldo a pagar de 3.245,80€. Recuerda que el plazo de presentación termina el 20 de abril.",
-        "Según los documentos que has subido, tus gastos deducibles este trimestre son correctos. Te recomiendo guardar todas las facturas de suministros y material de oficina.",
-        "Tu estimación de IRPF anual está basada en los ingresos declarados hasta ahora. Si tienes previsto algún cambio significativo en tu facturación, podemos ajustar las previsiones.",
-        "He detectado una factura pendiente de clasificar. ¿Corresponde a un gasto de operaciones corrientes o a una inversión en activo fijo?",
-      ]
-
-      const assistantMessage: Message = {
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: "Este asistente todavía no está conectado a la base de conocimiento real.",
         timestamp: new Date(),
-      }
-
-      setIsTyping(false)
-      setMessages((prev) => [...prev, assistantMessage])
-    }, 1500)
+      },
+    ])
+    setInput("")
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -212,7 +193,7 @@ export function AIChatWidget() {
               <Button
                 size="icon"
                 onClick={handleSend}
-                disabled={!input.trim() || isTyping}
+                disabled={!input.trim()}
                 className="shrink-0 bg-primary hover:bg-primary/90"
               >
                 <Send className="size-4" />
