@@ -8,7 +8,8 @@ import {
   Receipt,
   Settings,
   LogOut,
-  CalendarDays
+  CalendarDays,
+  CheckSquare
 } from "lucide-react"
 import {
   Sidebar,
@@ -29,6 +30,7 @@ export function AdvisorSidebar({ currentView, onNavigate, onLogout }: any) {
     { id: "validacion", label: "Validar Facturas", icon: FileCheck },
     { id: "monitor-ia", label: "Monitor IA", icon: Bot },
     { id: "facturacion", label: "Facturación Despacho", icon: Receipt },
+    { id: "compliance", label: "Calendario Fiscal", icon: CheckSquare },
   ]
 
   return (
