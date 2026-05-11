@@ -24,16 +24,38 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+def default_work_schedule():
+    return {
+        "default": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "monday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "tuesday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "wednesday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "thursday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "friday": {"enabled": True, "slots": [{"start": "09:00", "end": "15:00"}]},
+        "saturday": {"enabled": False, "slots": []},
+        "sunday": {"enabled": False, "slots": []},
+    }
+
+
 class User(AbstractUser):
     username = None
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    first_name = models.CharField(max_length=50, blank=True)
+    last_name = models.CharField(max_length=50, blank=True)
     email = models.EmailField(unique=True, null=False)
     ROLE_CHOICES = [
         ("Asesor", "Asesor"),
-        ("SME", "SME"),
-        ("Freelance", "Freelance"),
+        ("Autónomo", "Autónomo"),
+        ("Sociedad", "Sociedad"),
     ]
-    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default="Freelance")
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default="Autónomo")
+    specialties = models.JSONField(default=list, blank=True)
+    profile_image = models.FileField(upload_to="avatars/", null=True, blank=True)
+    work_start = models.TimeField(null=True, blank=True)
+    work_end = models.TimeField(null=True, blank=True)
+    work_schedule = models.JSONField(
+        default=default_work_schedule, blank=True, null=False
+    )
     last_login = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -41,6 +63,10 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     objects = UserManager()
+
+    @property
+    def is_advisor(self):
+        return self.role == "Asesor"
 
     def __str__(self):
         return self.email

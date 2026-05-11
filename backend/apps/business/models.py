@@ -9,13 +9,58 @@ class Business(models.Model):
     name = models.CharField(max_length=255, null=False)
     tax_id = models.CharField(max_length=100, unique=True, null=False)
     sector = models.CharField(max_length=255, null=True, blank=True)
+    has_employees = models.BooleanField(default=False)
+    has_office_rent = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    tax_status = models.CharField(max_length=20, default="AL DÍA", db_index=True)
+    pending_incidents = models.IntegerField(default=0)
 
     def __str__(self):
         return self.name
 
     class Meta:
         db_table = "business"
+        verbose_name_plural = "Businesses"
+        indexes = [
+            models.Index(fields=["tax_status"]),
+        ]
+
+
+class Appointment(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pendiente"),
+        ("confirmed", "Confirmada"),
+        ("cancelled", "Cancelada"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(
+        Business, on_delete=models.PROTECT, related_name="appointments"
+    )
+    advisor = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="appointments_as_advisor"
+    )
+    client = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="appointments_as_client",
+    )
+    client_name = models.CharField(max_length=255)
+    client_email = models.EmailField()
+    appointment_type = models.CharField(max_length=100)
+    scheduled_at = models.DateTimeField(db_index=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="pending")
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.client_name} - {self.appointment_type}"
+
+    class Meta:
+        db_table = "appointments"
 
 
 class UserBusiness(models.Model):

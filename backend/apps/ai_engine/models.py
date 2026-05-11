@@ -46,17 +46,7 @@ class DocumentChunk(models.Model):
     )
     content_snippet = models.TextField()
     page_number = models.IntegerField(null=True, blank=True)
+    embedding = VectorField(dimensions=768, null=True, blank=True)
 
     class Meta:
         db_table = "document_chunks"
-
-
-class VectorStore(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    chunk = models.OneToOneField(
-        DocumentChunk, on_delete=models.CASCADE, related_name="vector"
-    )
-    embedding = VectorField(dimensions=768)
-
-    class Meta:
-        db_table = "vector_store"
