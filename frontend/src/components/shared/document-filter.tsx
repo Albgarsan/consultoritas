@@ -82,16 +82,20 @@ export function DocumentFilter({
   }
 
   const handleCustomDate = (type: "from" | "to", date: Date | undefined) => {
+    const normalizedDate = type === "to" && date
+      ? new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
+      : date
+
     if (type === "from") {
-      setDateFrom(date)
+      setDateFrom(normalizedDate)
       setPreset(undefined)
     } else {
-      setDateTo(date)
+      setDateTo(normalizedDate)
       setPreset(undefined)
     }
 
-    const finalFrom = type === "from" ? date : dateFrom
-    const finalTo = type === "to" ? date : dateTo
+    const finalFrom = type === "from" ? normalizedDate : dateFrom
+    const finalTo = type === "to" ? normalizedDate : dateTo
 
     triggerUpdate({
       status,

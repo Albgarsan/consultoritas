@@ -72,12 +72,22 @@ async function ensureCsrf() {
   await fetch('/api/csrf/', { credentials: 'include' })
 }
 
+function mergeHeaders(existing: HeadersInit | undefined, extra: Record<string, string>) {
+  const headers = new Headers(existing)
+  Object.entries(extra).forEach(([key, value]) => {
+    headers.set(key, value)
+  })
+  return headers
+}
+
 const criticalNoStorePaths = [
   '/api/users/me/',
   '/api/users/login/',
   '/api/users/logout/',
   '/api/business/my_business/',
+  '/api/business/companies/',
   '/api/business/dashboard_summary/',
+  '/api/documents/tax-calendar/',
   '/api/documents/stats/',
   '/api/business/tax-calendar/',
 ]
@@ -97,10 +107,7 @@ export async function apiFetch(input: RequestInfo, init: RequestInit = {}) {
     await ensureCsrf()
     const csrftoken = getCookie('csrftoken')
     if (csrftoken) {
-      init.headers = {
-        ...(init.headers || {}),
-        'X-CSRFToken': csrftoken,
-      }
+      init.headers = mergeHeaders(init.headers, { 'X-CSRFToken': csrftoken })
     }
   }
 

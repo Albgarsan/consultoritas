@@ -95,9 +95,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"scheduled_at": "Fecha u hora inválidas."}
                     ) from exc
+            elif "scheduled_at" not in attrs:
+                # Partial update without scheduling fields -> allow status/notes updates.
                 return attrs
-            # Partial update without date/time -> allow other fields (status, notes, etc.)
-            return attrs
 
         if not attrs.get("scheduled_at") and date_value and time_value:
             try:

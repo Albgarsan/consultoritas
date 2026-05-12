@@ -148,6 +148,27 @@ export function TaxStatus({ documents = [], calendarEntries = [], useRealCalenda
     )
   }
 
+  const documentBasedItems: TaxItem[] = documents.slice(0, 4).map((doc) => {
+    const uploadedDate = doc.uploaded_at ? new Date(doc.uploaded_at) : new Date()
+    const dueDate = uploadedDate.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+    const period = `${Math.floor(uploadedDate.getMonth() / 3) + 1}T ${uploadedDate.getFullYear()}`
+    const normalizedStatus = (doc.status || "").toLowerCase()
+    const status: TaxStatus = normalizedStatus === "procesado" ? "presentado" : "en-proceso"
+
+    return {
+      name: `${doc.doc_type || "Documento"} - ${doc.file_name || "Sin nombre"}`,
+      period,
+      status,
+      dueDate,
+    }
+  })
+
+  const itemsToRender = documentBasedItems.length > 0 ? documentBasedItems : mockTaxItems
+
   return (
     <Card className="border-border/50 shadow-sm">
       <CardHeader>
@@ -156,7 +177,7 @@ export function TaxStatus({ documents = [], calendarEntries = [], useRealCalenda
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {mockTaxItems.map((item, index) => {
+          {itemsToRender.map((item, index) => {
             const config = statusConfig[item.status]
             const StatusIcon = config.icon
             return (

@@ -18,6 +18,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _get_env_list(name, default_values):
+    raw_value = os.getenv(name)
+    if not raw_value:
+        return default_values
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -49,6 +57,7 @@ INSTALLED_APPS = [
     "apps.documents",
     "apps.ai_engine",
     "rest_framework",
+    "rest_framework.authtoken",
     "corsheaders",
 ]
 
@@ -147,17 +156,23 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "false").lower() in {"1", "true", "ye
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() in {"1", "true", "yes"}
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "admin@consultoritas.com")
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://localhost:3000",
-]
+CSRF_TRUSTED_ORIGINS = _get_env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    [
+        "http://localhost",
+        "http://127.0.0.1",
+        "http://localhost:3000",
+    ],
+)
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://localhost:3000",
-]
+CORS_ALLOWED_ORIGINS = _get_env_list(
+    "CORS_ALLOWED_ORIGINS",
+    [
+        "http://localhost",
+        "http://127.0.0.1",
+        "http://localhost:3000",
+    ],
+)
 
 CORS_ALLOW_CREDENTIALS = True
 

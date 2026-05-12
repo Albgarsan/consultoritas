@@ -46,14 +46,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { apiFetch, parseBackendError, type DocumentoFacturacion, type InvoiceDataAEAT } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, handleNumericKeyDown } from "@/lib/utils"
 import { DocumentFilter } from "@/components/shared/document-filter"
-
-const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-  if (["e", "E", "+", "-"].includes(e.key)) {
-    e.preventDefault()
-  }
-}
 
 type DocumentoValidacion = DocumentoFacturacion & {
   amount?: number

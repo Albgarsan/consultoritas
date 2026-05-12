@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import type { KeyboardEvent } from "react"
 import { Sparkles, Send, X, Minimize2, Maximize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,7 +43,7 @@ export function AIChatWidget() {
     if (!input.trim()) return
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: "user",
       content: input,
       timestamp: new Date(),
@@ -52,7 +53,7 @@ export function AIChatWidget() {
       ...prev,
       userMessage,
       {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: "assistant",
         content: "Este asistente todavía no está conectado a la base de conocimiento real.",
         timestamp: new Date(),
@@ -61,7 +62,7 @@ export function AIChatWidget() {
     setInput("")
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -106,6 +107,7 @@ export function AIChatWidget() {
             size="icon"
             className="size-7 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/10"
             onClick={() => setIsMinimized(!isMinimized)}
+            aria-label={isMinimized ? "Expandir chat" : "Minimizar chat"}
           >
             {isMinimized ? <Maximize2 className="size-4" /> : <Minimize2 className="size-4" />}
           </Button>
@@ -114,6 +116,7 @@ export function AIChatWidget() {
             size="icon"
             className="size-7 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/10"
             onClick={() => setIsOpen(false)}
+            aria-label="Cerrar chat"
           >
             <X className="size-4" />
           </Button>
@@ -195,6 +198,7 @@ export function AIChatWidget() {
                 onClick={handleSend}
                 disabled={!input.trim()}
                 className="shrink-0 bg-primary hover:bg-primary/90"
+                aria-label="Enviar mensaje"
               >
                 <Send className="size-4" />
               </Button>

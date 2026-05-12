@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import type { KeyboardEvent } from "react"
 import { Sparkles, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,7 +62,7 @@ export function PremiumAIChat() {
     ])
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -142,6 +143,7 @@ export function PremiumAIChat() {
               onClick={() => handleSend()}
               disabled={!input.trim()}
               className="shrink-0 bg-primary hover:bg-primary/90"
+              aria-label="Enviar mensaje al asistente"
             >
               <Send className="size-4" />
             </Button>

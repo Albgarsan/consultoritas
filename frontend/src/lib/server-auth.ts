@@ -6,20 +6,54 @@ export type AuthUser = {
   first_name?: string
 }
 
+function normalizeOrigin(raw?: string | null): string | null {
+  if (!raw) return null
+  try {
+    const parsed = new URL(raw)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null
+    return parsed.origin
+  } catch {
+    return null
+  }
+}
+
+function sanitizeHostHeader(raw?: string | null): string | null {
+  if (!raw) return null
+  const host = raw.trim().toLowerCase().split(",")[0]
+  // Accept host or host:port only.
+  if (!/^[a-z0-9.-]+(?::\d{1,5})?$/.test(host)) return null
+  return host
+}
+
+function isTrustedHost(host: string, trustedHosts: Set<string>): boolean {
+  return trustedHosts.has(host)
+}
+
 export async function getServerAuthUser(): Promise<AuthUser | null> {
   const requestHeaders = await headers()
   const hostHeader = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || ""
   const protoHeader = requestHeaders.get("x-forwarded-proto") || ""
 
-  // Build a safe base URL. Use the host as provided by the proxy (nginx) or
-  // the incoming request. Only fallback to the local development host when
-  // the header is missing.
-  const host = hostHeader || "localhost:3000"
-  const proto = protoHeader || "http"
+  const configuredAppOrigin = normalizeOrigin(process.env.APP_BASE_URL)
+  const trustedHosts = new Set(
+    (process.env.TRUSTED_SERVER_HOSTS || "localhost:3000,127.0.0.1:3000,frontend:3000")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  )
+
+  const sanitizedHost = sanitizeHostHeader(hostHeader)
+  const normalizedProto = protoHeader === "https" ? "https" : "http"
+
+  const trustedRequestOrigin =
+    sanitizedHost && isTrustedHost(sanitizedHost, trustedHosts)
+      ? `${normalizedProto}://${sanitizedHost}`
+      : null
+
+  const baseOrigin = configuredAppOrigin || trustedRequestOrigin || "http://localhost:3000"
 
   try {
-    const base = `${proto}://${host}`
-    const target = new URL("/api/users/me/", base).toString()
+    const target = new URL("/api/users/me/", baseOrigin).toString()
 
     // First, try the incoming origin (respects proxy headers). If that
     // fails (connectivity inside docker), fallback to an internal backend

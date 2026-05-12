@@ -2,9 +2,20 @@
 
 import uuid
 
-import apps.users.models
 import django.utils.timezone
 from django.db import migrations, models
+
+
+def default_work_schedule():
+    return {
+        "monday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "tuesday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "wednesday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "thursday": {"enabled": True, "slots": [{"start": "09:00", "end": "18:00"}]},
+        "friday": {"enabled": True, "slots": [{"start": "09:00", "end": "15:00"}]},
+        "saturday": {"enabled": False, "slots": []},
+        "sunday": {"enabled": False, "slots": []},
+    }
 
 
 class Migration(migrations.Migration):
@@ -83,9 +94,7 @@ class Migration(migrations.Migration):
                 ("work_end", models.TimeField(blank=True, null=True)),
                 (
                     "work_schedule",
-                    models.JSONField(
-                        blank=True, default=apps.users.models.default_work_schedule
-                    ),
+                    models.JSONField(blank=True, default=default_work_schedule),
                 ),
                 ("last_login", models.DateTimeField(blank=True, null=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),

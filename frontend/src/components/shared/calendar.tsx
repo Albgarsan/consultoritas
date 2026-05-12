@@ -79,11 +79,9 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
     )
   }
 
-  const sortedEntries = [...calendarEntries].sort((a, b) => {
-    const dateA = new Date(a.period_start).getTime()
-    const dateB = new Date(b.period_start).getTime()
-    return dateA - dateB
-  })
+  const sortedEntries = [...calendarEntries].sort(
+    (left, right) => new Date(left.deadline).getTime() - new Date(right.deadline).getTime()
+  )
 
   const groupedEntries = sortedEntries.reduce((acc, entry) => {
     const deadline = new Date(entry.deadline)
@@ -97,8 +95,12 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
   }, {} as Record<string, TaxCalendarEntry[]>)
 
   const sortedPeriodKeys = Object.keys(groupedEntries).sort((a, b) => {
-    const entriesA = groupedEntries[a]
-    const entriesB = groupedEntries[b]
+    const entriesA = [...groupedEntries[a]].sort(
+      (left, right) => new Date(left.period_start).getTime() - new Date(right.period_start).getTime()
+    )
+    const entriesB = [...groupedEntries[b]].sort(
+      (left, right) => new Date(left.period_start).getTime() - new Date(right.period_start).getTime()
+    )
     if (!entriesA[0] || !entriesB[0]) return 0
     const dateA = new Date(entriesA[0].period_start).getTime()
     const dateB = new Date(entriesB[0].period_start).getTime()

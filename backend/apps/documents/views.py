@@ -1,3 +1,4 @@
+import logging
 import os
 
 from apps.business.models import Business
@@ -20,6 +21,8 @@ from .serializers import (
     InvoiceDataSerializer,
     TaxCalendarSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -277,9 +280,17 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 )
 
             return response
-        except Exception as e:
+        except Exception:
+            logger.exception(
+                "Error downloading document %s from path %s",
+                document.id,
+                document.storage_path,
+            )
             return Response(
-                {"error": "Error al descargar el archivo", "detail": str(e)},
+                {
+                    "error": "Error al descargar el archivo",
+                    "detail": "No se pudo procesar la descarga. Intenta de nuevo más tarde.",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -302,6 +313,7 @@ class InvoiceDataViewSet(viewsets.ReadOnlyModelViewSet):
 class TaxCalendarViewSet(viewsets.ModelViewSet):
     serializer_class = TaxCalendarSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         if self.request.user.role == "Asesor":

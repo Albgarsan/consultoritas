@@ -64,6 +64,7 @@ export function ChatWidget() {
                 size="icon"
                 className="text-primary-foreground hover:bg-primary-foreground/20 rounded-full h-8 w-8"
                 onClick={() => setIsOpen(false)}
+                aria-label="Cerrar chat"
               >
                 <X className="size-4" />
               </Button>
@@ -106,6 +107,7 @@ export function ChatWidget() {
                   size="icon"
                   className="absolute right-1 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
                   onClick={handleSend}
+                  aria-label="Enviar mensaje"
                 >
                   <Send className="size-3.5 ml-0.5" />
                 </Button>

@@ -148,11 +148,7 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
         if self.request.user.role == "Asesor":
-            clients = (
-                User.objects.exclude(role="Asesor")
-                .prefetch_related(business_prefetch)
-                .distinct()
-            )
+            clients = self.get_queryset().exclude(role="Asesor")
         else:
             clients = User.objects.filter(id=self.request.user.id).prefetch_related(
                 business_prefetch

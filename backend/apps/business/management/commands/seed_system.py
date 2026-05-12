@@ -270,10 +270,10 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Populating fiscal calendars..."))
         call_command("populate_calendars", clear=True)
-        # Ensure Cliente 1 has three overdue entries for immediate INCIDENCIA tests.
-        overdue_date = date.today() - timedelta(days=60)
-        period_start = overdue_date - timedelta(days=90)
-        period_end = overdue_date - timedelta(days=1)
+        # Ensure Cliente 1 has fixed Q1 2026 overdue entries for immediate INCIDENCIA tests.
+        period_start = date(2026, 1, 1)
+        period_end = date(2026, 3, 31)
+        overdue_date = date(2026, 4, 20)
         first_business = created_businesses[0]
 
         TaxCalendar.objects.create(
@@ -306,8 +306,18 @@ class Command(BaseCommand):
             is_presented=False,
             notes="Seed stress case: overdue Retenciones",
         )
+        TaxCalendar.objects.create(
+            business=first_business,
+            tax_type="Pagos a Cuenta",
+            period="Trimestral",
+            period_start=period_start,
+            period_end=period_end,
+            deadline=overdue_date,
+            is_presented=False,
+            notes="Seed stress case: overdue Pagos a Cuenta",
+        )
         self.stdout.write(
-            self.style.SUCCESS("Injected 3 overdue tax calendar entries for Cliente 1")
+            self.style.SUCCESS("Injected 4 overdue tax calendar entries for Cliente 1")
         )
 
         self.stdout.write(self.style.SUCCESS("seed_system completed successfully"))

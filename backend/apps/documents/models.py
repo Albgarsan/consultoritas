@@ -181,17 +181,20 @@ class InvoiceData(models.Model):
         self.full_clean()
         base = Decimal(self.tax_base or 0)
 
-        if self.tax_amount is None and self.tax_rate is not None:
+        if self.tax_rate is not None:
             self.tax_amount = (base * Decimal(self.tax_rate) / Decimal("100")).quantize(
                 Decimal("0.01")
             )
+        else:
+            self.tax_amount = Decimal(self.tax_amount or 0).quantize(Decimal("0.01"))
 
-        if (
-            self.equivalence_tax_amount is None
-            and self.equivalence_tax_rate is not None
-        ):
+        if self.equivalence_tax_rate is not None:
             self.equivalence_tax_amount = (
                 base * Decimal(self.equivalence_tax_rate) / Decimal("100")
+            ).quantize(Decimal("0.01"))
+        else:
+            self.equivalence_tax_amount = Decimal(
+                self.equivalence_tax_amount or 0
             ).quantize(Decimal("0.01"))
 
         self.total_amount = (

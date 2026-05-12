@@ -27,15 +27,15 @@ class BusinessViewSet(viewsets.ModelViewSet):
         now = timezone.now().date()
         return (
             Business.objects.annotate(
-                pending_tax_items=Count(
+                overdue_tax_items=Count(
                     "tax_calendar",
                     filter=Q(
                         tax_calendar__is_presented=False,
-                        tax_calendar__deadline__gte=now,
+                        tax_calendar__deadline__lt=now,
                     ),
                 ),
                 tax_status_calculated=Case(
-                    When(pending_tax_items__gt=0, then=Value("INCIDENCIA")),
+                    When(overdue_tax_items__gt=0, then=Value("INCIDENCIA")),
                     default=Value("AL DÍA"),
                     output_field=CharField(),
                 ),
@@ -58,7 +58,7 @@ class BusinessViewSet(viewsets.ModelViewSet):
         if user.role == "Asesor":
             stats = {
                 "total_clients": User.objects.exclude(role="Asesor").count(),
-                "incidences": Business.objects.filter(tax_status="INCIDENCIA").count(),
+                "incidences": Business.objects.filter(pending_incidents__gt=0).count(),
                 "upcoming_deadlines": TaxCalendar.objects.filter(
                     deadline__gte=now, is_presented=False
                 )

@@ -13,6 +13,7 @@ class Migration(migrations.Migration):
     dependencies = []
 
     operations = [
+        migrations.RunSQL("CREATE EXTENSION IF NOT EXISTS vector"),
         migrations.CreateModel(
             name="Conversation",
             fields=[

@@ -245,6 +245,7 @@ class ClientListSerializer(serializers.ModelSerializer):
     tax_status = serializers.SerializerMethodField()
     primary_business_id = serializers.SerializerMethodField()
     primary_business_name = serializers.SerializerMethodField()
+    primary_business = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -258,6 +259,7 @@ class ClientListSerializer(serializers.ModelSerializer):
             "is_active",
             "primary_business_id",
             "primary_business_name",
+            "primary_business",
         ]
 
     def _primary_business_link(self, obj):
@@ -277,3 +279,16 @@ class ClientListSerializer(serializers.ModelSerializer):
     def get_primary_business_name(self, obj):
         link = self._primary_business_link(obj)
         return link.business.name if link and link.business else None
+
+    def get_primary_business(self, obj):
+        link = self._primary_business_link(obj)
+        if not link or not link.business:
+            return None
+
+        business = link.business
+        return {
+            "id": str(business.id),
+            "name": business.name,
+            "has_employees": bool(getattr(business, "has_employees", False)),
+            "has_office_rent": bool(getattr(business, "has_office_rent", False)),
+        }

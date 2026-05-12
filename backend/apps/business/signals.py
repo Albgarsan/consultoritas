@@ -38,6 +38,14 @@ def update_business_tax_cache(business):
     )
 
 
+def _delete_unpresented_tax_items(business, tax_type):
+    TaxCalendar.objects.filter(
+        business=business,
+        tax_type=tax_type,
+        is_presented=False,
+    ).delete()
+
+
 # --- RECEPTORES DE SEÑALES ---
 
 
@@ -87,72 +95,64 @@ def ensure_business_tax_calendar(business, owner_user=None):
     if owner_role not in ["Autónomo", "Sociedad"]:
         return
 
-    today = timezone.now().date()
     previous_has_employees = getattr(business, "_previous_has_employees", None)
     previous_has_office_rent = getattr(business, "_previous_has_office_rent", None)
 
     if previous_has_employees is True and not business.has_employees:
-        TaxCalendar.objects.filter(
-            business=business,
-            tax_type="Retenciones",
-            is_presented=False,
-            deadline__gte=today,
-        ).filter(Q(notes__isnull=True) | Q(notes="")).delete()
+        _delete_unpresented_tax_items(business, "Retenciones")
     if previous_has_office_rent is True and not business.has_office_rent:
-        TaxCalendar.objects.filter(
-            business=business,
-            tax_type="Pagos a Cuenta",
-            is_presented=False,
-            deadline__gte=today,
-        ).filter(Q(notes__isnull=True) | Q(notes="")).delete()
+        _delete_unpresented_tax_items(business, "Pagos a Cuenta")
 
-    year = date.today().year
+    creation_year = getattr(business.created_at, "year", date.today().year)
+    current_year = date.today().year
+    years = sorted({creation_year, current_year})
 
-    for start, end, deadline, label in _quarter_dates(year):
-        TaxCalendar.objects.get_or_create(
-            business=business,
-            tax_type="IVA",
-            period_start=start,
-            period_end=end,
-            defaults={
-                "deadline": deadline,
-                "notes": f"Modelo 303 - {label} {year}",
-                "period": "Trimestral",
-            },
-        )
-        if owner_role == "Autónomo":
+    for year in years:
+        for start, end, deadline, label in _quarter_dates(year):
             TaxCalendar.objects.get_or_create(
                 business=business,
-                tax_type="IRPF",
+                tax_type="IVA",
                 period_start=start,
                 period_end=end,
                 defaults={
                     "deadline": deadline,
-                    "notes": f"Modelo 130 - {label} {year}",
+                    "notes": f"Modelo 303 - {label} {year}",
                     "period": "Trimestral",
                 },
             )
-        if business.has_employees:
-            TaxCalendar.objects.get_or_create(
-                business=business,
-                tax_type="Retenciones",
-                period_start=start,
-                period_end=end,
-                defaults={
-                    "deadline": deadline,
-                    "notes": f"Modelo 111 - {label} {year}",
-                    "period": "Trimestral",
-                },
-            )
-        if business.has_office_rent:
-            TaxCalendar.objects.get_or_create(
-                business=business,
-                tax_type="Pagos a Cuenta",
-                period_start=start,
-                period_end=end,
-                defaults={
-                    "deadline": deadline,
-                    "notes": f"Modelo 115 - {label} {year}",
-                    "period": "Trimestral",
-                },
-            )
+            if owner_role == "Autónomo":
+                TaxCalendar.objects.get_or_create(
+                    business=business,
+                    tax_type="IRPF",
+                    period_start=start,
+                    period_end=end,
+                    defaults={
+                        "deadline": deadline,
+                        "notes": f"Modelo 130 - {label} {year}",
+                        "period": "Trimestral",
+                    },
+                )
+            if business.has_employees:
+                TaxCalendar.objects.get_or_create(
+                    business=business,
+                    tax_type="Retenciones",
+                    period_start=start,
+                    period_end=end,
+                    defaults={
+                        "deadline": deadline,
+                        "notes": f"Modelo 111 - {label} {year}",
+                        "period": "Trimestral",
+                    },
+                )
+            if business.has_office_rent:
+                TaxCalendar.objects.get_or_create(
+                    business=business,
+                    tax_type="Pagos a Cuenta",
+                    period_start=start,
+                    period_end=end,
+                    defaults={
+                        "deadline": deadline,
+                        "notes": f"Modelo 115 - {label} {year}",
+                        "period": "Trimestral",
+                    },
+                )

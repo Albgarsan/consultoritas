@@ -51,7 +51,7 @@ export function ComplianceDashboard() {
       const res = await apiFetch("/api/documents/tax-calendar/")
       if (!res.ok) throw new Error("Error loading tax calendar")
       const data = await res.json()
-      setCalendarEntries(Array.isArray(data) ? data : (data?.results || []))
+      setCalendarEntries(Array.isArray(data) ? data : [])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error cargando calendario fiscal")
     } finally {
@@ -112,13 +112,15 @@ export function ComplianceDashboard() {
   }, [calendarEntries])
 
   const grouped = useMemo(() => {
-    const filtered = calendarEntries.filter((entry) => {
+    const filtered = [...calendarEntries]
+      .sort((left, right) => new Date(left.deadline).getTime() - new Date(right.deadline).getTime())
+      .filter((entry) => {
       const clientMatch = entry.business?.name?.toLowerCase().includes(search.toLowerCase())
       if (!clientMatch) return false
       if (modelFilter !== "all" && toModelCode(entry) !== modelFilter) return false
       if (quarterFilter !== "all" && toQuarter(entry) !== quarterFilter) return false
       return true
-    })
+      })
 
     const map = new Map<string, GroupedBusiness>()
     for (const entry of filtered) {
@@ -278,7 +280,7 @@ export function ComplianceDashboard() {
                               )}
                             </div>
                             {!entry.is_presented && (
-                              <Button size="sm" variant="outline" onClick={() => handleMarkPresented(entry.id)}>
+                              <Button size="sm" variant="outline" type="button" onClick={() => handleMarkPresented(entry.id)}>
                                 Marcar presentada
                               </Button>
                             )}

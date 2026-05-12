@@ -40,8 +40,10 @@ export default function AdvisorPage() {
     return []
   }, [])
 
-  const loadAllData = useCallback(async () => {
-    setIsLoading(true)
+  const loadAllData = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true)
+    }
     try {
       const [userResult, documentsResult, clientsResult, appointmentsResult] = await Promise.allSettled([
         apiFetch("/api/users/me/"),
@@ -89,7 +91,7 @@ export default function AdvisorPage() {
 
   useEffect(() => {
     const handleUpdate = () => {
-      void loadAllData()
+      void loadAllData({ silent: true })
     }
 
     window.addEventListener("consultoritas:documents-updated", handleUpdate)

@@ -40,6 +40,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { apiFetch, parseBackendError, type DocumentoFacturacion } from "@/lib/api"
+import { handleNumericKeyDown } from "@/lib/utils"
 
 type BillingDocument = DocumentoFacturacion & {
   amount?: number
@@ -120,12 +121,6 @@ function resolveDateRangeLabel(filters: DocumentFilters) {
   if (filters.preset === "last90") return "Últimos 90 días"
   if (filters.preset === "semester") return "Último semestre"
   return "Periodo visible"
-}
-
-const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-  if (["e", "E", "+", "-"].includes(e.key)) {
-    e.preventDefault()
-  }
 }
 
 export function FacturacionView({ documents = [] }: { documents?: BillingDocument[] }) {
@@ -226,6 +221,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
       const blob = await fetchDocumentBlob(doc, true)
       const url = window.URL.createObjectURL(blob)
       window.open(url, "_blank", "noopener,noreferrer")
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000)
     } catch (error) {
       toast.error(error instanceof Error ? parseBackendError(error.message) : "Error al abrir en pestaña nueva")
     } finally {

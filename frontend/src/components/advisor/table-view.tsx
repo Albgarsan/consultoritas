@@ -312,6 +312,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       window.open(url, "_blank", "noopener,noreferrer")
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo abrir el documento")
     }
@@ -598,9 +599,9 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
 
 
             <div className="flex items-center gap-1 mt-4 text-sm">
-              <ArrowUpRight className="size-4 text-emerald-600" />
-              <span className="text-emerald-600 font-medium">+12.5%</span>
-              <span className="text-muted-foreground">vs trimestre anterior</span>
+              <ArrowUpRight className="size-4 text-muted-foreground" />
+              <span className="text-muted-foreground font-medium">N/A</span>
+              <span className="text-muted-foreground">sin datos comparativos</span>
             </div>
           </CardContent>
         </Card>
@@ -619,9 +620,9 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
               </div>
             </div>
             <div className="flex items-center gap-1 mt-4 text-sm">
-              <ArrowDownRight className="size-4 text-rose-600" />
-              <span className="text-rose-600 font-medium">-3.2%</span>
-              <span className="text-muted-foreground">vs trimestre anterior</span>
+              <ArrowDownRight className="size-4 text-muted-foreground" />
+              <span className="text-muted-foreground font-medium">N/A</span>
+              <span className="text-muted-foreground">sin datos comparativos</span>
             </div>
           </CardContent>
         </Card>
