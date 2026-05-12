@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -168,24 +169,26 @@ class UserSerializer(serializers.ModelSerializer):
             generated_password = generate_secure_password()
             password_to_use = generated_password
 
-        user = User.objects.create_user(
-            email=email, password=password_to_use, **validated_data
-        )
+        # Ensure user creation and notification happen atomically so email failures rollback DB
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=email, password=password_to_use, **validated_data
+            )
 
-        if generated_password:
-            email_body = (
-                f"Hola {user.first_name or 'cliente'},\n\n"
-                "Tu cuenta en Consultoritas ha sido creada correctamente.\n"
-                f"Contraseña temporal: {generated_password}\n\n"
-                "Accede con tu email y esta contraseña, y cámbiala después desde Configuración.\n"
-            )
-            send_mail(
-                subject="Tu acceso a Consultoritas",
-                message=email_body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
+            if generated_password:
+                email_body = (
+                    f"Hola {user.first_name or 'cliente'},\n\n"
+                    "Tu cuenta en Consultoritas ha sido creada correctamente.\n"
+                    f"Contraseña temporal: {generated_password}\n\n"
+                    "Accede con tu email y esta contraseña, y cámbiala después desde Configuración.\n"
+                )
+                send_mail(
+                    subject="Tu acceso a Consultoritas",
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
 
         return user
 
@@ -263,8 +266,12 @@ class ClientListSerializer(serializers.ModelSerializer):
         ]
 
     def _primary_business_link(self, obj):
-        links = list(obj.businesses.all())
-        return links[0] if links else None
+        # Use the same deterministic selection as UserSerializer.get_primary_business
+        return (
+            obj.businesses.select_related("business")
+            .order_by("business__created_at")
+            .first()
+        )
 
     def get_tax_status(self, obj):
         link = self._primary_business_link(obj)

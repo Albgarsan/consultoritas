@@ -68,10 +68,14 @@ export async function getServerAuthUser(): Promise<AuthUser | null> {
           cookie: requestHeaders.get("cookie") || "",
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(5000),
       })
     } catch (err) {
-      // ignore and try fallback
+      // ignore and try fallback unless it's an explicit auth failure (handled below)
     }
+
+    // If the initial call returned an explicit auth failure, short-circuit and don't try fallback.
+    if (response && (response.status === 401 || response.status === 403)) return null
 
     if (!response || !response.ok) {
       try {
@@ -82,6 +86,7 @@ export async function getServerAuthUser(): Promise<AuthUser | null> {
             cookie: requestHeaders.get("cookie") || "",
           },
           cache: "no-store",
+          signal: AbortSignal.timeout(5000),
         })
       } catch (err) {
         return null

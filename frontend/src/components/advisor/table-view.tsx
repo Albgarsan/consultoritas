@@ -311,8 +311,8 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
-      window.open(url, "_blank", "noopener,noreferrer")
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+      const opened = window.open(url, "_blank", "noopener,noreferrer")
+      setTimeout(() => window.URL.revokeObjectURL(url), 5000)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo abrir el documento")
     }
@@ -403,7 +403,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
       const rows = docsForExport.map((doc) => {
         const invoice = doc.invoice_data || {}
         return [
-          toDateCellValue(invoice.issue_date || invoice.issue_date || doc.uploaded_at),
+          toDateCellValue(invoice.issue_date || doc.uploaded_at),
           toDateCellValue(invoice.fecha_operacion || invoice.issue_date || doc.uploaded_at),
           invoice.serie || "",
           invoice.invoice_number || "",
@@ -411,9 +411,9 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
           invoice.nif_tipo || "",
           invoice.nif_codigo_pais || "ES",
           invoice.nif_identificacion || invoice.supplier_tax_id || "",
-          toNumber(invoice.total_amount ?? invoice.total_amount ?? doc.amount),
-          toNumber(invoice.tax_base ?? invoice.tax_base),
-          toNumber(invoice.tax_rate ?? invoice.tax_rate),
+          toNumber(invoice.total_amount ?? doc.amount),
+          toNumber(invoice.tax_base ?? 0),
+          toNumber(invoice.tax_rate ?? 0),
           toNumber(invoice.tax_amount),
           toNumber(invoice.tipo_recargo_equivalencia),
           toNumber(invoice.cuota_recargo_equivalencia),

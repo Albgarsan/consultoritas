@@ -169,9 +169,9 @@ export function DocumentFilter({
             {/* Left Side: Status + Client */}
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Estado</label>
-                  <Select value={status || "all"} onValueChange={handleStatusChange}>
+                  <div className="space-y-2">
+                  <label htmlFor="status-select" className="text-xs font-medium text-muted-foreground">Estado</label>
+                  <Select id="status-select" value={status || "all"} onValueChange={handleStatusChange}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Todos los estados" />
                     </SelectTrigger>
@@ -188,8 +188,8 @@ export function DocumentFilter({
 
                 {onClientFilterChange && (
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Cliente</label>
-                    <Select value={clientFilter || "all"} onValueChange={handleClientChange}>
+                    <label htmlFor="client-select" className="text-xs font-medium text-muted-foreground">Cliente</label>
+                    <Select id="client-select" value={clientFilter || "all"} onValueChange={handleClientChange}>
                       <SelectTrigger className="h-9">
                         <SelectValue placeholder="Todos los clientes" />
                       </SelectTrigger>

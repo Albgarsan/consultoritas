@@ -1,3 +1,4 @@
+import logging
 import random
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -6,6 +7,7 @@ import requests
 from apps.business.models import Appointment, Business, UserBusiness
 from apps.documents.models import Document, InvoiceData, TaxCalendar
 from apps.users.models import User
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management import call_command
@@ -16,17 +18,31 @@ from django.utils import timezone
 class Command(BaseCommand):
     help = "Deploy full advisor test system with realistic users, businesses, files and tax calendar"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Force destructive operations (only use in disposable environments)",
+        )
+
     def handle(self, *args, **options):
         self.stdout.write(
             self.style.WARNING("Cleaning existing users, businesses and documents...")
         )
+        # Safety: require DEBUG or explicit --force to run destructive wipes.
+        if not settings.DEBUG and not options.get("force"):
+            raise RuntimeError(
+                "Refusing to run seed_system without DEBUG=True or --force. This prevents accidental data loss."
+            )
+
         Appointment.objects.all().delete()
         TaxCalendar.objects.all().delete()
         InvoiceData.objects.all().delete()
         Document.objects.all().delete()
         UserBusiness.objects.all().delete()
         Business.objects.all().delete()
-        User.objects.all().delete()
+        # Preserve administrative accounts (superusers) to avoid locking out environments
+        User.objects.exclude(is_superuser=True).delete()
 
         self.stdout.write(self.style.SUCCESS("Creating advisors..."))
         advisors = [
@@ -276,59 +292,57 @@ class Command(BaseCommand):
         overdue_date = date(2026, 4, 20)
         first_business = created_businesses[0]
 
-        TaxCalendar.objects.create(
-            business=first_business,
-            tax_type="IVA",
-            period="Trimestral",
-            period_start=period_start,
-            period_end=period_end,
-            deadline=overdue_date,
-            is_presented=False,
-            notes="Seed stress case: overdue IVA",
-        )
-        TaxCalendar.objects.create(
-            business=first_business,
-            tax_type="IRPF",
-            period="Trimestral",
-            period_start=period_start,
-            period_end=period_end,
-            deadline=overdue_date,
-            is_presented=False,
-            notes="Seed stress case: overdue IRPF",
-        )
-        TaxCalendar.objects.create(
-            business=first_business,
-            tax_type="Retenciones",
-            period="Trimestral",
-            period_start=period_start,
-            period_end=period_end,
-            deadline=overdue_date,
-            is_presented=False,
-            notes="Seed stress case: overdue Retenciones",
-        )
-        TaxCalendar.objects.create(
-            business=first_business,
-            tax_type="Pagos a Cuenta",
-            period="Trimestral",
-            period_start=period_start,
-            period_end=period_end,
-            deadline=overdue_date,
-            is_presented=False,
-            notes="Seed stress case: overdue Pagos a Cuenta",
-        )
+        # Only inject overdue entries if an equivalent entry doesn't already exist
+        desired = [
+            ("IVA", "Seed stress case: overdue IVA"),
+            ("IRPF", "Seed stress case: overdue IRPF"),
+            ("Retenciones", "Seed stress case: overdue Retenciones"),
+            ("Pagos a Cuenta", "Seed stress case: overdue Pagos a Cuenta"),
+        ]
+        created_count = 0
+        for tax_type, notes in desired:
+            exists = TaxCalendar.objects.filter(
+                business=first_business,
+                tax_type=tax_type,
+                period_start=period_start,
+                period_end=period_end,
+            ).exists()
+            if exists:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"TaxCalendar already exists for {first_business.name} {tax_type} {period_start} - {period_end}, skipping"  # noqa
+                    )
+                )
+                continue
+
+            TaxCalendar.objects.create(
+                business=first_business,
+                tax_type=tax_type,
+                period="Trimestral",
+                period_start=period_start,
+                period_end=period_end,
+                deadline=overdue_date,
+                is_presented=False,
+                notes=notes,
+            )
+            created_count += 1
+
         self.stdout.write(
-            self.style.SUCCESS("Injected 4 overdue tax calendar entries for Cliente 1")
+            self.style.SUCCESS(
+                f"Injected {created_count} overdue tax calendar entries for Cliente 1 (skipped existing)"
+            )
         )
 
         self.stdout.write(self.style.SUCCESS("seed_system completed successfully"))
 
     def _download_pdf(self, url: str, file_name: str) -> bytes:
+        logger = logging.getLogger(__name__)
         try:
             resp = requests.get(url, timeout=20)
             if resp.ok and resp.content.startswith(b"%PDF"):
                 return resp.content
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Failed to download PDF %s from %s: %s", file_name, url, e)
 
         # Fallback minimal PDF if download fails
         stream = f"BT\n/F1 12 Tf\n50 700 Td\n({file_name}) Tj\nET"

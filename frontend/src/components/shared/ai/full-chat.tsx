@@ -43,7 +43,7 @@ export function PremiumAIChat() {
     if (!messageToSend.trim()) return
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: "user",
       content: messageToSend,
       timestamp: new Date(),
@@ -54,7 +54,7 @@ export function PremiumAIChat() {
     setMessages((prev) => [
       ...prev,
       {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: "assistant",
         content: "Este chat todavía no está conectado a una fuente de datos real.",
         timestamp: new Date(),

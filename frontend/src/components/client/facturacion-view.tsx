@@ -569,8 +569,8 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Archivo</Label>
-              <Input type="file" accept=".pdf,image/*" onKeyDown={handleNumericKeyDown} onChange={(e) => setCreateFile(e.target.files?.[0] || null)} />
+              <Label htmlFor="create-file">Archivo</Label>
+              <Input id="create-file" type="file" accept=".pdf,image/*" onKeyDown={handleNumericKeyDown} onChange={(e) => setCreateFile(e.target.files?.[0] || null)} />
             </div>
 
             <div className="space-y-2">

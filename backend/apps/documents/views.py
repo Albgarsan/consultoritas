@@ -5,6 +5,7 @@ from apps.business.models import Business
 from apps.users.models import User
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import FileResponse
@@ -141,23 +142,37 @@ class DocumentViewSet(viewsets.ModelViewSet):
         """
         document = self.get_object()
 
-        # Update document status
-        new_status = request.data.get("status")
-        if new_status:
-            document.status = new_status
-            document.save()
-
-        # Update invoice data if provided
+        # Wrap in transaction so we only mark the document processed if invoice data is valid
         invoice_data_payload = request.data.get("invoice_data")
-        if invoice_data_payload:
-            invoice_data, created = InvoiceData.objects.get_or_create(document=document)
-            serializer = InvoiceDataSerializer(
-                invoice_data, data=invoice_data_payload, partial=True
+        new_status = request.data.get("status")
+
+        try:
+            with transaction.atomic():
+                if invoice_data_payload:
+                    invoice_data, created = InvoiceData.objects.get_or_create(
+                        document=document
+                    )
+                    serializer = InvoiceDataSerializer(
+                        invoice_data, data=invoice_data_payload, partial=True
+                    )
+                    if serializer.is_valid():
+                        serializer.save()
+                    else:
+                        return Response(
+                            serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                        )
+
+                if new_status:
+                    document.status = new_status
+                    document.save()
+        except Exception:
+            logger.exception(
+                "Error validating invoice data for document %s", document.id
             )
-            if serializer.is_valid():
-                serializer.save()
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Error processing validation"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         # Return updated document
         serializer = self.get_serializer(document)

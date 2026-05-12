@@ -8,11 +8,28 @@ from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import Throttled
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import SimpleRateThrottle
 
 from .models import User
 from .serializers import ClientListSerializer, PasswordChangeSerializer, UserSerializer
+
+
+class LoginRateThrottle(SimpleRateThrottle):
+    scope = "login"
+
+    def get_rate(self):
+        # default to 5/min if not configured in settings
+        return getattr(self, "rate", "5/min")
+
+    def get_cache_key(self, request, view):
+        # Key by email if present, otherwise by IP
+        ident = (request.data or {}).get("email") or self.get_ident(request)
+        if not ident:
+            return None
+        return self.cache_format % {"scope": self.scope, "ident": ident}
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -64,6 +81,7 @@ class UserViewSet(viewsets.ModelViewSet):
         methods=["post"],
         permission_classes=[AllowAny],
         authentication_classes=[],
+        throttle_classes=[LoginRateThrottle],
     )
     def login(self, request):
         email = request.data.get("email")

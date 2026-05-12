@@ -161,6 +161,7 @@ CSRF_TRUSTED_ORIGINS = _get_env_list(
     [
         "http://localhost",
         "http://127.0.0.1",
+        "http://127.0.0.1:3000",
         "http://localhost:3000",
     ],
 )
@@ -170,6 +171,7 @@ CORS_ALLOWED_ORIGINS = _get_env_list(
     [
         "http://localhost",
         "http://127.0.0.1",
+        "http://127.0.0.1:3000",
         "http://localhost:3000",
     ],
 )

@@ -10,18 +10,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<{ role: "user" | "ai"; content: string }[]>([
-    { role: "ai", content: "Chat disponible cuando se conecte el servicio de IA real." }
+  const [messages, setMessages] = useState<{ id: string; role: "user" | "ai"; content: string }[]>([
+    { id: crypto.randomUUID(), role: "ai", content: "Chat disponible cuando se conecte el servicio de IA real." }
   ])
   const [input, setInput] = useState("")
 
   const handleSend = () => {
     if (!input.trim()) return
-    setMessages((prev) => [...prev, { role: "user", content: input }])
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", content: input }])
     setInput("")
     setMessages((prev) => [
       ...prev,
-      { role: "ai", content: "Este chat todavía no está conectado a la base de conocimiento real." }
+      { id: crypto.randomUUID(), role: "ai", content: "Este chat todavía no está conectado a la base de conocimiento real." }
     ])
   }
 
@@ -72,8 +72,8 @@ export function ChatWidget() {
 
             <ScrollArea className="flex-1 p-4 bg-muted/10 overflow-y-auto">
               <div className="space-y-4 pb-4">
-                {messages.map((msg, index) => (
-                  <div key={index} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                {messages.map((msg) => (
+                  <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     {msg.role === "ai" && (
                       <Avatar className="w-8 h-8 shrink-0">
                         <AvatarFallback className="bg-primary/20 text-primary">

@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle2, Clock, PenLine, AlertCircle } from "lucide-react"
+import { CheckCircle2, Clock, PenLine } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import type { DocumentoFacturacion, TaxCalendarEntry } from "@/lib/api"

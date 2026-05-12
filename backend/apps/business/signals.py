@@ -39,11 +39,13 @@ def update_business_tax_cache(business):
 
 
 def _delete_unpresented_tax_items(business, tax_type):
+    # Only delete unpresented items that are for future periods/deadlines
+    today = timezone.now().date()
     TaxCalendar.objects.filter(
         business=business,
         tax_type=tax_type,
         is_presented=False,
-    ).delete()
+    ).filter(Q(deadline__gt=today) | Q(period_end__gte=today)).delete()
 
 
 # --- RECEPTORES DE SEÑALES ---
@@ -89,9 +91,14 @@ def ensure_business_tax_calendar(business, owner_user=None):
     if owner_user:
         owner_role = owner_user.role
     else:
-        link = business.users.filter(role_in_business="Admin").first()
-        owner_role = link.user.role if link else "Autónomo"
+        link = (
+            business.users.filter(role_in_business="Admin")
+            .select_related("user")
+            .first()
+        )
+        owner_role = link.user.role if link else None
 
+    # If owner_role is unknown, do not assume a default – abort calendar creation.
     if owner_role not in ["Autónomo", "Sociedad"]:
         return
 
@@ -105,7 +112,7 @@ def ensure_business_tax_calendar(business, owner_user=None):
 
     creation_year = getattr(business.created_at, "year", date.today().year)
     current_year = date.today().year
-    years = sorted({creation_year, current_year})
+    years = list(range(creation_year, current_year + 1))
 
     for year in years:
         for start, end, deadline, label in _quarter_dates(year):

@@ -1,5 +1,3 @@
-import uuid
-
 from apps.documents.models import TaxCalendar
 from apps.documents.serializers import TaxCalendarSerializer, UserSerializer
 from apps.users.models import User
