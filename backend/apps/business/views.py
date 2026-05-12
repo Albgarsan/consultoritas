@@ -8,6 +8,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework.throttling import SimpleRateThrottle
 
 from .models import Appointment, Business, UserBusiness
 from .serializers import (
@@ -95,10 +96,28 @@ class UserBusinessViewSet(viewsets.ModelViewSet):
 class AppointmentViewSet(viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
 
+    class PublicAppointmentCreateThrottle(SimpleRateThrottle):
+        scope = "appointment_create"
+
+        def get_rate(self):
+            # Hardcoded sensible default for create endpoint
+            return "10/hour"
+
+        def get_cache_key(self, request, view):
+            # Key by remote IP and optional client email to reduce abuse
+            ident = self.get_ident(request)
+            email = (request.data or {}).get("client_email") or ""
+            return f"{self.scope}:{ident}:{email}"
+
     def get_permissions(self):
         if self.action == "create":
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
+
+    def get_throttles(self):
+        if self.action == "create":
+            return [self.PublicAppointmentCreateThrottle()]
+        return []
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import type { DocumentoFacturacion, TaxCalendarEntry } from "@/lib/api"
 
-type TaxStatus = "en-proceso" | "pendiente-firma" | "presentado"
+type TaxStatus = "vencido" | "pendiente-firma" | "presentado"
 
 interface TaxItem {
   name: string
@@ -24,7 +24,7 @@ const mockTaxItems: TaxItem[] = [
   {
     name: "Modelo 130 - IRPF",
     period: "1T 2026",
-    status: "en-proceso",
+    status: "vencido",
     dueDate: "20 Abr 2026",
   },
   {
@@ -163,7 +163,7 @@ export function TaxStatus({ documents = [], calendarEntries = [], useRealCalenda
     })
     const period = `${Math.floor(uploadedDate.getMonth() / 3) + 1}T ${uploadedDate.getFullYear()}`
     const normalizedStatus = (doc.status || "").toLowerCase()
-    const status: TaxStatus = normalizedStatus === "procesado" ? "presentado" : "en-proceso"
+    const status: TaxStatus = normalizedStatus === "procesado" ? "presentado" : "pendiente-firma"
 
     return {
       name: `${doc.doc_type || "Documento"} - ${doc.file_name || "Sin nombre"}`,

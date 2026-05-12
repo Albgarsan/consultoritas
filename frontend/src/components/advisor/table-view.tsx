@@ -312,6 +312,9 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const opened = window.open(url, "_blank", "noopener,noreferrer")
+      if (!opened) {
+        toast.error("No se pudo abrir el documento. Verifica que los popups estén permitidos.")
+      }
       setTimeout(() => window.URL.revokeObjectURL(url), 5000)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo abrir el documento")
@@ -369,7 +372,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
     }
 
     try {
-      const { Workbook } = await import("exceljs")
+      const { Workbook } = await eval('import("exceljs")')
       const workbook = new Workbook()
       const selectedClient = clients.find((client) => String(client.id) === exportClientId)
       const clientName = [selectedClient?.first_name, selectedClient?.last_name].filter(Boolean).join(" ") || selectedClient?.email || "cliente"
@@ -458,7 +461,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
         })
       }
 
-      worksheet.columns.forEach((column) => {
+      worksheet.columns.forEach((column: any) => {
         const maxLength = column.values?.reduce((acc: number, value: unknown) => {
           const current = value == null ? 0 : value instanceof Date ? 10 : String(value).length
           return Math.max(acc, current)

@@ -170,11 +170,11 @@ def userbusiness_post_save(sender, instance, created, **kwargs):
     # When an Admin link is created, ensure the business calendar exists
     def _process():
         try:
-            ensure_business_tax_calendar(
-                instance.business,
-                owner_user=instance.user,
-                owner_role=instance.role_in_business,
-            )
+            if instance.role_in_business == "Admin":
+                ensure_business_tax_calendar(
+                    instance.business,
+                    owner_user=instance.user,
+                )
             update_business_tax_cache(instance.business)
         except Exception:
             # Best-effort: log and continue

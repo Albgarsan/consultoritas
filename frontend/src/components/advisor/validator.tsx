@@ -468,7 +468,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
 
     void (async () => {
       try {
-        const { Workbook } = await import("exceljs")
+        const { Workbook } = await eval('import("exceljs")')
         const workbook = new Workbook()
         const worksheet = workbook.addWorksheet("Validacion_AEAT")
 
@@ -547,7 +547,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
           })
         }
 
-        worksheet.columns.forEach((column) => {
+        worksheet.columns.forEach((column: any) => {
           const maxLength = column.values?.reduce((acc: number, value: unknown) => {
             const current = value == null ? 0 : value instanceof Date ? 10 : String(value).length
             return Math.max(acc, current)

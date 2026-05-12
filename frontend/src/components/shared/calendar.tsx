@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import type { TaxCalendarEntry } from "@/lib/api"
 
-type ModelStatus = "presentado" | "en-proceso" | "pendiente"
+type ModelStatus = "presentado" | "vencido" | "pendiente"
 
 const statusConfig: Record<ModelStatus, { label: string; icon: typeof CheckCircle2; className: string; badgeClass: string }> = {
   presentado: {
@@ -15,11 +15,11 @@ const statusConfig: Record<ModelStatus, { label: string; icon: typeof CheckCircl
     className: "text-emerald-600",
     badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
   },
-  "en-proceso": {
-    label: "En proceso",
+  vencido: {
+    label: "Vencido",
     icon: Clock,
-    className: "text-amber-600",
-    badgeClass: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "text-red-600",
+    badgeClass: "bg-red-100 text-red-700 border-red-200",
   },
   pendiente: {
     label: "Pendiente",
@@ -44,7 +44,7 @@ function getCalendarStatus(entry: TaxCalendarEntry): ModelStatus {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   deadline.setHours(0, 0, 0, 0)
-  return deadline < today ? "en-proceso" : "pendiente"
+  return deadline < today ? "vencido" : "pendiente"
 }
 
 function getCalendarModel(entry: TaxCalendarEntry) {
@@ -134,8 +134,8 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
                         "flex items-center justify-between p-3 rounded-lg border transition-colors",
                         entry.is_presented
                           ? "bg-emerald-50/50 border-emerald-200"
-                          : status === "en-proceso"
-                            ? "bg-amber-50/50 border-amber-200"
+                          : status === "vencido"
+                            ? "bg-red-50/50 border-red-200"
                             : "bg-muted/30 border-border"
                       )}
                     >
@@ -145,8 +145,8 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
                             "flex items-center justify-center w-10 h-10 rounded-lg font-bold text-sm",
                             entry.is_presented
                               ? "bg-emerald-100 text-emerald-700"
-                              : status === "en-proceso"
-                                ? "bg-amber-100 text-amber-700"
+                              : status === "vencido"
+                                ? "bg-red-100 text-red-700"
                                 : "bg-muted text-muted-foreground"
                           )}
                         >

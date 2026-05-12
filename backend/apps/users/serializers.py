@@ -1,12 +1,16 @@
+import os
 import secrets
 import string
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import serializers
 
 from .models import User
@@ -74,7 +78,16 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
             "primary_business",
         ]
-        read_only_fields = ["id", "last_login", "created_at", "primary_business"]
+        # Protect sensitive flags from being writable via API
+        read_only_fields = [
+            "id",
+            "last_login",
+            "created_at",
+            "primary_business",
+            "role",
+            "is_staff",
+            "is_active",
+        ]
 
     def get_primary_business(self, obj):
         import logging
@@ -166,28 +179,32 @@ class UserSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password", None)
         email = validated_data.pop("email")
         validated_data.setdefault("role", "Autónomo")
+        # If no password provided, create user with unusable password and
+        # send a one-time tokenized password setup link instead of emailing a password.
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
-        password_to_use = password
-        generated_password = None
-        if not password_to_use:
-            generated_password = generate_secure_password()
-            password_to_use = generated_password
-
-        # Ensure user creation and notification happen atomically so email failures rollback DB
         with transaction.atomic():
+            # If password is None, create_user will set_unusable_password()
             user = User.objects.create_user(
-                email=email, password=password_to_use, **validated_data
+                email=email, password=password, **validated_data
             )
 
-            if generated_password:
+            if not password:
+                # Generate token + uid for password setup and email link
+                token = default_token_generator.make_token(user)
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                reset_path = f"/reset-password/confirm/{uid}/{token}"
+                reset_url = frontend_url.rstrip("/") + reset_path
+
                 email_body = (
-                    f"Hola {user.first_name or 'cliente'},\n\n"
-                    "Tu cuenta en Consultoritas ha sido creada correctamente.\n"
-                    f"Contraseña temporal: {generated_password}\n\n"
-                    "Accede con tu email y esta contraseña, y cámbiala después desde Configuración.\n"
+                    f"Hola {user.first_name or 'usuario'},\n\n"
+                    "Se ha creado una cuenta para ti en Consultoritas. Para establecer tu contraseña, "
+                    f"por favor visita el siguiente enlace (válido por un solo uso):\n\n{reset_url}\n\n"
+                    "Si no esperabas este correo, ignóralo o contacta con soporte.\n"
                 )
+
                 send_mail(
-                    subject="Tu acceso a Consultoritas",
+                    subject="Configura tu contraseña en Consultoritas",
                     message=email_body,
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[user.email],
@@ -270,12 +287,22 @@ class ClientListSerializer(serializers.ModelSerializer):
         ]
 
     def _primary_business_link(self, obj):
-        # Use the same deterministic selection as UserSerializer.get_primary_business
-        return (
+        # Cache the lookup on the object to avoid repeated DB queries
+        cache_attr = "_primary_business_link_cached"
+        if hasattr(obj, cache_attr):
+            return getattr(obj, cache_attr)
+
+        result = (
             obj.businesses.select_related("business")
             .order_by("business__created_at")
             .first()
         )
+        try:
+            setattr(obj, cache_attr, result)
+        except Exception:
+            # If obj is not writable, just return the result without caching
+            pass
+        return result
 
     def get_tax_status(self, obj):
         link = self._primary_business_link(obj)

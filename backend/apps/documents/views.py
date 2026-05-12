@@ -114,9 +114,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
         try:
             if instance.storage_path:
                 default_storage.delete(instance.storage_path)
-        except Exception:
-            # Best-effort: do not block deletion of DB record if storage fails
-            pass
+        except Exception as exc:
+            # Best-effort: log storage deletion errors for operational visibility
+            logger.exception(
+                "Failed to delete storage object for document %s (%s)",
+                instance.pk,
+                getattr(instance, "storage_path", None),
+            )
 
         # Finally delete the DB record
         instance.delete()
@@ -162,8 +166,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
                         )
 
                 if new_status:
+                    valid_choices = [c[0] for c in Document.STATUS_CHOICES]
+                    if new_status not in valid_choices:
+                        return Response(
+                            {"status": "Valor de estado no válido."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                     document.status = new_status
                     document.save()
+        except ValidationError as exc:
+            # DRF validation errors -> 400
+            return Response(
+                getattr(exc, "detail", str(exc)), status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception:
             logger.exception(
                 "Error validating invoice data for document %s", document.id
@@ -279,20 +294,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
             content_type = content_type_map.get(file_ext, "application/octet-stream")
 
             file_obj = default_storage.open(document.storage_path, "rb")
+            # Use FileResponse filename/as_attachment params to let Django handle headers and sanitization
             response = FileResponse(
                 file_obj,
                 content_type=content_type,
                 as_attachment=not is_preview,
+                filename=document.file_name,
             )
-
-            if not is_preview:
-                response["Content-Disposition"] = (
-                    f'attachment; filename="{document.file_name}"'
-                )
-            else:
-                response["Content-Disposition"] = (
-                    f'inline; filename="{document.file_name}"'
-                )
 
             return response
         except Exception:
