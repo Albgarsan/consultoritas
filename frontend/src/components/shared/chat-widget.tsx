@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Send, Bot, User, X, MessageCircle } from "lucide-react"
+import { Send, Bot, X, MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -105,9 +105,11 @@ export function ChatWidget() {
                 />
                 <Button
                   size="icon"
-                  className="absolute right-1 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  disabled={!input.trim()}
+                  className="absolute right-1 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleSend}
                   aria-label="Enviar mensaje"
+                  aria-disabled={!input.trim()}
                 >
                   <Send className="size-3.5 ml-0.5" />
                 </Button>

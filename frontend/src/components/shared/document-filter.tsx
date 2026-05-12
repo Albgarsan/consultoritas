@@ -171,8 +171,8 @@ export function DocumentFilter({
               <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                   <label htmlFor="status-select" className="text-xs font-medium text-muted-foreground">Estado</label>
-                  <Select id="status-select" value={status || "all"} onValueChange={handleStatusChange}>
-                    <SelectTrigger className="h-9">
+                  <Select value={status || "all"} onValueChange={handleStatusChange}>
+                    <SelectTrigger id="status-select" className="h-9">
                       <SelectValue placeholder="Todos los estados" />
                     </SelectTrigger>
                     <SelectContent>
@@ -189,8 +189,8 @@ export function DocumentFilter({
                 {onClientFilterChange && (
                   <div className="space-y-2">
                     <label htmlFor="client-select" className="text-xs font-medium text-muted-foreground">Cliente</label>
-                    <Select id="client-select" value={clientFilter || "all"} onValueChange={handleClientChange}>
-                      <SelectTrigger className="h-9">
+                    <Select value={clientFilter || "all"} onValueChange={handleClientChange}>
+                      <SelectTrigger id="client-select" className="h-9">
                         <SelectValue placeholder="Todos los clientes" />
                       </SelectTrigger>
                       <SelectContent>

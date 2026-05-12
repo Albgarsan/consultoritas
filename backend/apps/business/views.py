@@ -23,7 +23,7 @@ class BusinessViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         now = timezone.now().date()
-        return (
+        queryset = (
             Business.objects.annotate(
                 overdue_tax_items=Count(
                     "tax_calendar",
@@ -44,6 +44,10 @@ class BusinessViewSet(viewsets.ModelViewSet):
             )
             .order_by("name")
         )
+        # Non-staff users only see businesses they belong to
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(users__user=self.request.user).distinct()
+        return queryset
 
     @action(detail=False, methods=["get"], url_path="dashboard_summary")
     def dashboard_summary(self, request):

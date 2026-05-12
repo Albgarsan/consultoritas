@@ -542,11 +542,11 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
     }
   }
 
-  const totalIngresos = facturasEmitidas
+  const totalIngresos = filteredEmitidas
     .filter((f) => ["pagada", "procesado"].includes((f.status || "").toLowerCase()))
     .reduce((acc, f) => acc + (f.amount || 0), 0)
 
-  const totalGastos = facturasRecibidas
+  const totalGastos = filteredRecibidas
     .filter((f) => ["pagada", "procesado"].includes((f.status || "").toLowerCase()))
     .reduce((acc, f) => acc + (f.amount || 0), 0)
 
@@ -781,9 +781,9 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
                                 Abrir en pestaña nueva
                               </DropdownMenuItem>
                               {statusName === "borrador" && (
-                                <DropdownMenuItem>
+                                <DropdownMenuItem disabled>
                                   <Send className="size-4 mr-2" />
-                                  Enviar
+                                  Enviar (no implementado)
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => handleDeleteDocument(invoice)} className="text-destructive">

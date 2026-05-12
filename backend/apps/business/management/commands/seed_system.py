@@ -1,5 +1,6 @@
 import logging
 import random
+import secrets
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
@@ -13,6 +14,7 @@ from django.core.files.storage import default_storage
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 
 
 class Command(BaseCommand):
@@ -24,8 +26,17 @@ class Command(BaseCommand):
             action="store_true",
             help="Force destructive operations (only use in disposable environments)",
         )
+        parser.add_argument(
+            "--password",
+            type=str,
+            default=None,
+            help="Password to use for all seed users. If not provided, a strong random password is generated.",
+        )
 
     def handle(self, *args, **options):
+        # Generate or use provided password
+        seed_password = options.get("password") or self._generate_strong_password()
+
         self.stdout.write(
             self.style.WARNING("Cleaning existing users, businesses and documents...")
         )
@@ -34,6 +45,10 @@ class Command(BaseCommand):
             raise RuntimeError(
                 "Refusing to run seed_system without DEBUG=True or --force. This prevents accidental data loss."
             )
+
+        self.stdout.write(
+            self.style.WARNING(f"\n⚠️  SEED PASSWORD (save this): {seed_password}\n")
+        )
 
         Appointment.objects.all().delete()
         TaxCalendar.objects.all().delete()
@@ -48,7 +63,7 @@ class Command(BaseCommand):
         advisors = [
             User.objects.create_user(
                 email="asesor1@demo.com",
-                password="password123",
+                password=seed_password,
                 first_name="Asesor",
                 last_name="Uno",
                 role="Asesor",
@@ -58,7 +73,7 @@ class Command(BaseCommand):
             ),
             User.objects.create_user(
                 email="asesor2@demo.com",
-                password="password123",
+                password=seed_password,
                 first_name="Asesor",
                 last_name="Dos",
                 role="Asesor",
@@ -68,7 +83,7 @@ class Command(BaseCommand):
             ),
             User.objects.create_user(
                 email="asesor3@demo.com",
-                password="password123",
+                password=seed_password,
                 first_name="Asesor",
                 last_name="Tres",
                 role="Asesor",
@@ -212,7 +227,7 @@ class Command(BaseCommand):
         for profile in profiles:
             business = Business.objects.create(**profile["business"])
             user = User.objects.create_user(
-                password="password123",
+                password=seed_password,
                 is_active=True,
                 **profile["user"],
             )
@@ -334,6 +349,16 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS("seed_system completed successfully"))
+
+    def _generate_strong_password(self, length: int = 12) -> str:
+        """Generate a strong random password."""
+        alphabet = (
+            "abcdefghijklmnopqrstuvwxyz"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "0123456789"
+            "!@#$%^&*()-_=+"
+        )
+        return get_random_string(length, alphabet)
 
     def _download_pdf(self, url: str, file_name: str) -> bytes:
         logger = logging.getLogger(__name__)

@@ -42,10 +42,10 @@ const mockTaxItems: TaxItem[] = [
 ]
 
 const statusConfig: Record<TaxStatus, { label: string; icon: typeof CheckCircle2; className: string }> = {
-  "en-proceso": {
-    label: "En proceso",
+  "vencido": {
+    label: "Vencido",
     icon: Clock,
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "bg-red-100 text-red-700 border-red-200",
   },
   "pendiente-firma": {
     label: "Pendiente de firma",
@@ -59,6 +59,12 @@ const statusConfig: Record<TaxStatus, { label: string; icon: typeof CheckCircle2
   },
 }
 
+function parseLocalDateYYYYMMDD(dateStr: string): Date {
+  // Parse "YYYY-MM-DD" as local date, not UTC
+  const [year, month, day] = dateStr.split("-").map(Number)
+  return new Date(year, month - 1, day)
+}
+
 const taxLabelMap: Record<string, string> = {
   IVA: "Modelo 303 - IVA",
   IRPF: "Modelo 130 - IRPF",
@@ -70,11 +76,11 @@ const taxLabelMap: Record<string, string> = {
 
 function getTaxStatus(entry: TaxCalendarEntry): TaxStatus {
   if (entry.is_presented) return "presentado"
-  const deadline = new Date(entry.deadline)
+  const deadline = parseLocalDateYYYYMMDD(entry.deadline)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   deadline.setHours(0, 0, 0, 0)
-  return deadline < today ? "en-proceso" : "pendiente-firma"
+  return deadline < today ? "vencido" : "pendiente-firma"
 }
 
 function formatItem(entry: TaxCalendarEntry) {
@@ -121,7 +127,7 @@ export function TaxStatus({ documents = [], calendarEntries = [], useRealCalenda
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium text-sm text-foreground">{formatItem(entry)}</span>
                     <span className="text-xs text-muted-foreground">
-                      {entry.period} &middot; Vence: {new Date(entry.deadline).toLocaleDateString("es-ES")}
+                      {entry.period} &middot; Vence: {parseLocalDateYYYYMMDD(entry.deadline).toLocaleDateString("es-ES")}
                     </span>
                   </div>
                   <Badge variant="outline" className={`gap-1.5 ${config.className}`}>

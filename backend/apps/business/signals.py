@@ -7,7 +7,7 @@ from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import Business
+from .models import Business, UserBusiness
 
 # --- LÓGICA DE APOYO (Auxiliares) ---
 
@@ -163,3 +163,25 @@ def ensure_business_tax_calendar(business, owner_user=None):
                         "period": "Trimestral",
                     },
                 )
+
+
+@receiver(post_save, sender=UserBusiness)
+def userbusiness_post_save(sender, instance, created, **kwargs):
+    # When an Admin link is created, ensure the business calendar exists
+    def _process():
+        try:
+            ensure_business_tax_calendar(
+                instance.business,
+                owner_user=instance.user,
+                owner_role=instance.role_in_business,
+            )
+            update_business_tax_cache(instance.business)
+        except Exception:
+            # Best-effort: log and continue
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Error processing UserBusiness post_save for %s", instance.pk
+            )
+
+    transaction.on_commit(_process)

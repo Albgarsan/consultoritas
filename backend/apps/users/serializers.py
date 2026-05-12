@@ -36,7 +36,7 @@ def generate_secure_password(length: int = 12) -> str:
         candidate = "".join(password_chars)
         try:
             validate_password(candidate)
-        except Exception:
+        except DjangoValidationError:
             continue
         return candidate
 
@@ -77,6 +77,9 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "last_login", "created_at", "primary_business"]
 
     def get_primary_business(self, obj):
+        import logging
+
+        logger = logging.getLogger(__name__)
         try:
             ub = (
                 obj.businesses.select_related("business")
@@ -92,7 +95,8 @@ class UserSerializer(serializers.ModelSerializer):
                 "has_employees": bool(getattr(business, "has_employees", False)),
                 "has_office_rent": bool(getattr(business, "has_office_rent", False)),
             }
-        except Exception:
+        except (AttributeError, obj.businesses.model.DoesNotExist) as e:
+            logger.warning(f"Failed to get primary business for user {obj.id}: {e}")
             return None
 
     def validate_password(self, value):

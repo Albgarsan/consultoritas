@@ -149,14 +149,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
         try:
             with transaction.atomic():
                 if invoice_data_payload:
-                    invoice_data, created = InvoiceData.objects.get_or_create(
-                        document=document
-                    )
+                    # Validate payload first to avoid creating partial/invalid rows
+                    existing = InvoiceData.objects.filter(document=document).first()
                     serializer = InvoiceDataSerializer(
-                        invoice_data, data=invoice_data_payload, partial=True
+                        existing, data=invoice_data_payload, partial=True
                     )
                     if serializer.is_valid():
-                        serializer.save()
+                        serializer.save(document=document)
                     else:
                         return Response(
                             serializer.errors, status=status.HTTP_400_BAD_REQUEST
@@ -251,19 +250,20 @@ class DocumentViewSet(viewsets.ModelViewSet):
         document = self.get_object()
         is_preview = request.query_params.get("preview", "").lower() == "true"
 
-        file_path = os.path.join(settings.MEDIA_ROOT, document.storage_path)
-
-        if not os.path.exists(file_path):
-            return Response(
-                {
-                    "error": "Archivo no encontrado",
-                    "detail": f"El archivo '{document.file_name}' no está disponible en el servidor.",
-                    "storage_path": document.storage_path,
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
+        # Use Django storage API so this works with remote backends as well
         try:
+            if not document.storage_path or not default_storage.exists(
+                document.storage_path
+            ):
+                return Response(
+                    {
+                        "error": "Archivo no encontrado",
+                        "detail": f"El archivo '{document.file_name}' no está disponible en el servidor.",
+                        "storage_path": document.storage_path,
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             # Determine content type based on file extension
             file_ext = os.path.splitext(document.file_name)[1].lower()
             content_type_map = {
@@ -278,8 +278,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
             }
             content_type = content_type_map.get(file_ext, "application/octet-stream")
 
+            file_obj = default_storage.open(document.storage_path, "rb")
             response = FileResponse(
-                open(file_path, "rb"),
+                file_obj,
                 content_type=content_type,
                 as_attachment=not is_preview,
             )
@@ -289,7 +290,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     f'attachment; filename="{document.file_name}"'
                 )
             else:
-                # For preview, use inline to open in browser
                 response["Content-Disposition"] = (
                     f'inline; filename="{document.file_name}"'
                 )
@@ -297,7 +297,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             return response
         except Exception:
             logger.exception(
-                "Error downloading document %s from path %s",
+                "Error downloading document %s from storage %s",
                 document.id,
                 document.storage_path,
             )
