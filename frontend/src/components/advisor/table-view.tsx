@@ -385,7 +385,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
     }
 
     try {
-      // @ts-expect-error exceljs is loaded at runtime only
+      // @ts-ignore exceljs is loaded at runtime only
       const ExcelJsModule = await import("exceljs")
       const { Workbook } = ExcelJsModule
       const workbook = new Workbook()
