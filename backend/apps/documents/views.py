@@ -158,20 +158,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
                     serializer = InvoiceDataSerializer(
                         existing, data=invoice_data_payload, partial=True
                     )
-                    if serializer.is_valid():
-                        serializer.save(document=document)
-                    else:
-                        return Response(
-                            serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                        )
+                    if not serializer.is_valid():
+                        raise ValidationError(serializer.errors)
+                    serializer.save(document=document)
 
                 if new_status:
                     valid_choices = [c[0] for c in Document.STATUS_CHOICES]
                     if new_status not in valid_choices:
-                        return Response(
-                            {"status": "Valor de estado no válido."},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
+                        raise ValidationError({"status": "Valor de estado no válido."})
                     document.status = new_status
                     document.save()
         except ValidationError as exc:

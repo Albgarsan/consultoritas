@@ -215,24 +215,37 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
 
   const fetchDocuments = useCallback(async (page = 1) => {
     try {
-      const params = new URLSearchParams()
-      params.set("page", String(page))
+      const allResults: BillingDocument[] = []
+      let nextUrl: string | null = `/api/documents/?page=1`
+      let count = 0
+
       if (businessId) {
+        const params = new URLSearchParams()
         params.set("business_id", businessId)
+        nextUrl = `/api/documents/?${params.toString()}&page=1`
       }
 
-      const res = await apiFetch(`/api/documents/?${params.toString()}`)
-      if (!res.ok) return
-      const data = (await res.json().catch(() => [])) as PaginatedDocumentsResponse | BillingDocument[]
-      const parsed = Array.isArray(data) ? { results: data } : data
-      const results = parsed.results || parsed.data || []
+      // Fetch all pages until exhausted
+      while (nextUrl) {
+        const res = await apiFetch(nextUrl)
+        if (!res.ok) break
+        const data = (await res.json().catch(() => null))
+        if (!data) break
+
+        const parsed = Array.isArray(data) ? { results: data, next: null } : data
+        const results = parsed.results || parsed.data || []
+        allResults.push(...results)
+        count = parsed.count || allResults.length
+        nextUrl = parsed.next || null
+      }
+
       pageRef.current = page
-      setDocs(results)
+      setDocs(allResults)
       setPageState({
-        count: Number(parsed.count || results.length || 0),
-        next: parsed.next || null,
-        previous: parsed.previous || null,
-        page,
+        count: Number(count || allResults.length || 0),
+        next: null,
+        previous: null,
+        page: 1,
       })
     } catch {
       // ignore
@@ -372,7 +385,9 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
     }
 
     try {
-      const { Workbook } = await eval('import("exceljs")')
+      // @ts-expect-error exceljs is loaded at runtime only
+      const ExcelJsModule = await import("exceljs")
+      const { Workbook } = ExcelJsModule
       const workbook = new Workbook()
       const selectedClient = clients.find((client) => String(client.id) === exportClientId)
       const clientName = [selectedClient?.first_name, selectedClient?.last_name].filter(Boolean).join(" ") || selectedClient?.email || "cliente"

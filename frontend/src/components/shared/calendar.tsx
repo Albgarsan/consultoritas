@@ -84,8 +84,7 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
   )
 
   const groupedEntries = sortedEntries.reduce((acc, entry) => {
-    const deadline = new Date(entry.deadline)
-    const periodLabel = entry.period === "Anual" ? `${deadline.getFullYear()}` : `${Math.floor(new Date(entry.period_start).getMonth() / 3) + 1}T ${new Date(entry.period_start).getFullYear()}`
+    const periodLabel = entry.period === "Anual" ? `${new Date(entry.period_start).getFullYear()}` : `${Math.floor(new Date(entry.period_start).getMonth() / 3) + 1}T ${new Date(entry.period_start).getFullYear()}`
 
     if (!acc[periodLabel]) {
       acc[periodLabel] = []

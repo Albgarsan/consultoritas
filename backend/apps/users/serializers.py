@@ -112,17 +112,28 @@ class UserSerializer(serializers.ModelSerializer):
             logger.warning(f"Failed to get primary business for user {obj.id}: {e}")
             return None
 
-    def validate_password(self, value):
-        if not value:
-            return value
+    def validate(self, attrs):
+        """Override validate to provide user context for password validation."""
+        password = attrs.get("password")
 
-        try:
-            validate_password(value)
-        except DjangoValidationError as exc:
-            raise serializers.ValidationError(
-                getattr(exc, "messages", ["Contraseña inválida"])
+        # Normalize empty password to None
+        if password == "":
+            attrs["password"] = None
+            password = None
+
+        if password:
+            # Create a temporary user instance with fields for validation context
+            temp_user = User(
+                email=attrs.get("email", ""),
+                first_name=attrs.get("first_name", ""),
+                last_name=attrs.get("last_name", ""),
             )
-        return value
+            try:
+                validate_password(password, user=temp_user)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError({"password": exc.messages})
+
+        return attrs
 
     def validate_work_schedule(self, value):
         if value in (None, ""):

@@ -104,10 +104,9 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             return "10/hour"
 
         def get_cache_key(self, request, view):
-            # Key by remote IP and optional client email to reduce abuse
+            # Key by remote IP only to avoid PII exposure in cache
             ident = self.get_ident(request)
-            email = (request.data or {}).get("client_email") or ""
-            return f"{self.scope}:{ident}:{email}"
+            return f"{self.scope}:{ident}"
 
     def get_permissions(self):
         if self.action == "create":
@@ -117,7 +116,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     def get_throttles(self):
         if self.action == "create":
             return [self.PublicAppointmentCreateThrottle()]
-        return []
+        return super().get_throttles()
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:

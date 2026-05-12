@@ -406,14 +406,20 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
   const handleValidate = async () => {
     if (!selectedRow) return
 
+    // Check NIF validity early before saving
+    if (!nifValidation.valid) {
+      toast.error(nifValidation.message || "El NIF es inválido. Por favor, corrígelo antes de validar.")
+      return
+    }
+
     setIsSaving(true)
 
     const payload = {
       issue_date: editedData.issue_date || null,
-      operation_date: editedData.fecha_operacion || null,
+      fecha_operacion: editedData.fecha_operacion || null,
       serie: editedData.serie || null,
       invoice_number: editedData.invoice_number || null,
-      last_invoice_number: editedData.invoice_number_final || null,
+      invoice_number_final: editedData.invoice_number_final || null,
       nif_tipo: editedData.nif_tipo || null,
       nif_codigo_pais: editedData.nif_codigo_pais || null,
       nif_identificacion: editedData.nif_identificacion || null,
@@ -422,8 +428,8 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
       tax_base: parseNullableNumber(editedData.tax_base),
       tax_rate: parseNullableNumber(editedData.tax_rate),
       tax_amount: parseNullableNumber(editedData.tax_amount),
-      equivalence_tax_rate: parseNullableNumber(editedData.tipo_recargo_equivalencia),
-      equivalence_tax_amount: parseNullableNumber(editedData.cuota_recargo_equivalencia),
+      tipo_recargo_equivalencia: parseNullableNumber(editedData.tipo_recargo_equivalencia),
+      cuota_recargo_equivalencia: parseNullableNumber(editedData.cuota_recargo_equivalencia),
     }
 
     try {
@@ -468,7 +474,9 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
 
     void (async () => {
       try {
-        const { Workbook } = await eval('import("exceljs")')
+        // @ts-expect-error exceljs is loaded at runtime only
+        const ExcelJsModule = await import("exceljs")
+        const { Workbook } = ExcelJsModule
         const workbook = new Workbook()
         const worksheet = workbook.addWorksheet("Validacion_AEAT")
 
