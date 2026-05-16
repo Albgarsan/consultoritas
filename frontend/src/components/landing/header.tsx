@@ -72,7 +72,7 @@ export function Header({ onNavigate, onAccessClick }: HeaderProps) {
                   {item.label}
                 </button>
               ))}
-              <Button onClick={onAccessClick} className="w-full bg-accent">Área Privada</Button>
+              <Button onClick={onAccessClick} className="w-full bg-accent">Acceso Portal</Button>
             </div>
           </motion.div>
         )}

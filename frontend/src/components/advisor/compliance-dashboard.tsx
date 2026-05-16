@@ -15,6 +15,14 @@ import { cn } from "@/lib/utils"
 import { useApiData } from "@/lib/use-api"
 import { mutate as globalMutate } from "swr"
 
+function parseLocalDateYYYYMMDD(dateStr?: string | null): Date {
+  if (!dateStr || typeof dateStr !== "string") return new Date(NaN)
+  const parts = dateStr.split("-").map(Number)
+  if (parts.length < 3) return new Date(NaN)
+  const [year, month, day] = parts
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
 type TaxCalendarEntry = {
   id: string
   business: { id: string; name: string }
@@ -73,7 +81,7 @@ export function ComplianceDashboard() {
   }
 
   const toQuarter = (entry: TaxCalendarEntry) => {
-    const month = new Date(entry.period_start).getMonth() + 1
+    const month = parseLocalDateYYYYMMDD(entry.period_start).getMonth() + 1
     if (month <= 3) return "Q1"
     if (month <= 6) return "Q2"
     if (month <= 9) return "Q3"
@@ -83,7 +91,7 @@ export function ComplianceDashboard() {
   const isOverdue = (deadline: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const due = new Date(deadline)
+    const due = parseLocalDateYYYYMMDD(deadline)
     due.setHours(0, 0, 0, 0)
     return due < today
   }
@@ -91,7 +99,7 @@ export function ComplianceDashboard() {
   const daysUntil = (deadline: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const due = new Date(deadline)
+    const due = parseLocalDateYYYYMMDD(deadline)
     due.setHours(0, 0, 0, 0)
     return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   }
@@ -103,7 +111,7 @@ export function ComplianceDashboard() {
 
   const grouped = useMemo(() => {
     const filtered = [...calendarEntries]
-      .sort((left, right) => new Date(left.deadline).getTime() - new Date(right.deadline).getTime())
+      .sort((left, right) => parseLocalDateYYYYMMDD(left.deadline).getTime() - parseLocalDateYYYYMMDD(right.deadline).getTime())
       .filter((entry) => {
         const clientMatch = entry.business?.name?.toLowerCase().includes(search.toLowerCase())
         if (!clientMatch) return false
@@ -131,7 +139,7 @@ export function ComplianceDashboard() {
     }
 
     for (const g of map.values()) {
-      g.entries.sort((x, y) => new Date(x.deadline).getTime() - new Date(y.deadline).getTime())
+      g.entries.sort((x, y) => parseLocalDateYYYYMMDD(x.deadline).getTime() - parseLocalDateYYYYMMDD(y.deadline).getTime())
     }
 
     return Array.from(map.values()).sort((a, b) => {
@@ -263,7 +271,7 @@ export function ComplianceDashboard() {
                               <div className="text-xs text-muted-foreground">{toQuarter(entry)} · {entry.period}</div>
                             </div>
                             <div className="text-right">
-                              <div className="text-xs text-muted-foreground">{new Date(entry.deadline).toLocaleDateString("es-ES")}</div>
+                              <div className="text-xs text-muted-foreground">{parseLocalDateYYYYMMDD(entry.deadline).toLocaleDateString("es-ES")}</div>
                               {entry.is_presented ? (
                                 <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50"><CheckCircle2 className="size-3 mr-1" />Presentado</Badge>
                               ) : overdue ? (

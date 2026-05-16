@@ -81,11 +81,11 @@ export default function LoginPage() {
           <CardContent className="pt-6 pb-8 px-8">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="identifier">Usuario / Email</Label>
+                <Label htmlFor="identifier">Email</Label>
                 <Input
                   id="identifier"
                   type="email"
-                  placeholder="ejemplo@demo.com"
+                  placeholder="ejemplo@gmail.com"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="bg-muted/30"
@@ -120,10 +120,6 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="rounded border-muted bg-transparent" />
-                  <span className="text-muted-foreground">Recordarme</span>
-                </label>
                 <button type="button" className="text-primary hover:underline font-medium">
                   ¿Olvidaste tu contraseña?
                 </button>

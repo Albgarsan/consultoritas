@@ -75,6 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "is_staff",
             "is_active",
+            "is_principal",
             "specialties",
             "password",
             "last_login",
@@ -89,6 +90,7 @@ class UserSerializer(serializers.ModelSerializer):
             "primary_business",
             "role",
             "is_staff",
+            "is_principal",
         ]
 
     def get_primary_business(self, obj):

@@ -25,8 +25,9 @@ export default function ClientePage() {
   )
 
   // 2. Repositorio documental impositivo del cliente
+  const documentsKey = user?.id ? `/api/documents/?tenant=${user.id}` : null
   const { data: documents = [], mutate: mutateDocuments, isLoading: isDocsLoading } = useApiData<any[]>(
-    `/api/documents/?tenant=${user?.id}`,
+    documentsKey,
     { dedupingInterval: 10000 }
   )
 

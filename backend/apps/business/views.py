@@ -45,9 +45,10 @@ class BusinessViewSet(viewsets.ModelViewSet):
             )
             .order_by("name")
         )
-        # Non-staff users only see businesses they belong to
-        if not self.request.user.is_staff:
+
+        if not self.request.user.is_staff and self.request.user.role != "Asesor":
             queryset = queryset.filter(users__user=self.request.user).distinct()
+
         return queryset
 
     @action(detail=False, methods=["get"], url_path="dashboard_summary")
@@ -74,7 +75,10 @@ class BusinessViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def tax_calendar(self, request):
-        year = int(request.query_params.get("year", timezone.now().year))
+        try:
+            year = int(request.query_params.get("year", timezone.now().year))
+        except (ValueError, TypeError):
+            year = timezone.now().year
 
         if getattr(request.user, "role", None) == "Asesor":
             queryset = (

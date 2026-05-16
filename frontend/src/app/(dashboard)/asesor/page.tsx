@@ -13,6 +13,7 @@ import { FacturacionView } from "@/components/advisor/table-view"
 import { AdvisorSettings } from "@/components/advisor/settings"
 import { AppointmentsManager } from "@/components/advisor/appointments-manager"
 import { ComplianceDashboard } from "@/components/advisor/compliance-dashboard"
+import { AltaAsesor } from "@/components/advisor/alta-asesor"
 import { Skeleton } from "@/components/ui/skeleton"
 import { apiFetch } from "@/lib/api"
 import { useApiData } from "@/lib/use-api"
@@ -64,6 +65,7 @@ export default function AdvisorPage() {
     last_name?: string
     email?: string
     role?: string
+    is_principal?: boolean
   }>("/api/users/me/")
 
   // Redirección si la sesión expira o no es válida
@@ -106,7 +108,7 @@ export default function AdvisorPage() {
 
   return (
     <SidebarProvider>
-      <AdvisorSidebar currentView={view} onNavigate={setView} onLogout={handleLogout} />
+      <AdvisorSidebar currentView={view} onNavigate={setView} onLogout={handleLogout} isPrincipal={user?.is_principal} />
       <SidebarInset className="bg-background">
         <header className="flex h-16 items-center gap-2 border-b px-4 sticky top-0 bg-background/80 backdrop-blur-md z-10 justify-between">
           <div className="flex items-center gap-2">
@@ -158,6 +160,11 @@ export default function AdvisorPage() {
           {view === "compliance" && (
             <Suspense fallback={<TableSkeleton />}>
               <ComplianceDashboard />
+            </Suspense>
+          )}
+          {view === "alta-asesor" && user?.is_principal && (
+            <Suspense fallback={<DashboardSkeleton />}>
+              <AltaAsesor onSuccess={() => void mutateUser()} />
             </Suspense>
           )}
         </main>

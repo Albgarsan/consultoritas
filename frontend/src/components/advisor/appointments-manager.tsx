@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
+import { useApiData } from "@/lib/use-api"
 
 type AppointmentStatus = "confirmed" | "pending" | "cancelled"
 
@@ -123,7 +124,28 @@ export function AppointmentsManager({
   const [workSchedule, setWorkSchedule] = useState<WorkSchedule>({})
   const [rescheduleWarningAccepted, setRescheduleWarningAccepted] = useState(false)
 
-  // Load advisor settings (work hours)
+  const { data: fetchedAppointments = [], mutate: mutateAppointments } = useApiData<any[]>(
+    "/api/business/appointments/",
+    { dedupingInterval: 5000 }
+  )
+
+  const { data: fetchedUser } = useApiData<any>("/api/users/me/")
+
+  const activeAppointments = appointments.length > 0 ? appointments : fetchedAppointments
+  const activeUser = currentUser || fetchedUser
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      void mutateAppointments()
+    }
+    window.addEventListener("consultoritas:appointments-updated", handleRefresh)
+    window.addEventListener("consultoritas:refresh", handleRefresh)
+    return () => {
+      window.removeEventListener("consultoritas:appointments-updated", handleRefresh)
+      window.removeEventListener("consultoritas:refresh", handleRefresh)
+    }
+  }, [mutateAppointments])
+
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -136,13 +158,12 @@ export function AppointmentsManager({
         setWorkEnd(data.work_end || null)
         setWorkSchedule((data.work_schedule && typeof data.work_schedule === "object") ? data.work_schedule : {})
       } catch {
-        // ignore
       }
     })()
     return () => { mounted = false }
   }, [])
 
-  const parsedAppointments: Appointment[] = appointments
+  const parsedAppointments: Appointment[] = activeAppointments
     .map((raw) => {
       const appointmentDate = new Date(raw.scheduled_at || raw.date || raw.datetime)
       if (Number.isNaN(appointmentDate.getTime())) {
@@ -159,7 +180,6 @@ export function AppointmentsManager({
     })
     .filter((item): item is Appointment => item !== null)
 
-  // Filtrar citas por el día seleccionado en el calendario
   const selectedDayAppointments = parsedAppointments.filter(app =>
     app.date.toDateString() === date?.toDateString()
   )
@@ -181,6 +201,7 @@ export function AppointmentsManager({
     try {
       await mutateAppointment(appointmentId, { status: "confirmed" })
       toast.success("Cita confirmada")
+      await mutateAppointments()
       window.dispatchEvent(new Event("consultoritas:appointments-updated"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo confirmar la cita")
@@ -193,6 +214,7 @@ export function AppointmentsManager({
     try {
       await mutateAppointment(appointmentId, undefined, "DELETE")
       toast.success("Cita eliminada")
+      await mutateAppointments()
       window.dispatchEvent(new Event("consultoritas:appointments-updated"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo eliminar la cita")
@@ -214,7 +236,6 @@ export function AppointmentsManager({
 
     setIsRescheduling(true)
     try {
-      // Build scheduled Date from selected date + time in client's local timezone
       const [h, m] = rescheduleTime.split(":").map((x) => parseInt(x, 10))
       const scheduled = new Date(rescheduleDate)
       scheduled.setHours(h)
@@ -222,13 +243,11 @@ export function AppointmentsManager({
       scheduled.setSeconds(0)
       scheduled.setMilliseconds(0)
 
-      // Prevent scheduling into the past
       if (scheduled.getTime() <= Date.now()) {
         toast.error("No puedes reprogramar una cita a una fecha u hora pasada")
         return
       }
 
-      // Check for collisions (exclude the appointment being rescheduled)
       const scheduledTs = scheduled.getTime()
       const conflict = parsedAppointments.some((a) => a.id !== rescheduleAppointment.id && Math.abs(a.date.getTime() - scheduledTs) < 1000 * 60)
       if (conflict) {
@@ -236,7 +255,6 @@ export function AppointmentsManager({
         return
       }
 
-      // Check against advisor working hours if configured
       let forceOutOfHours = false
       const outside = isOutOfHours(scheduled, workSchedule, workStart, workEnd)
       if (outside && !rescheduleWarningAccepted) {
@@ -247,12 +265,12 @@ export function AppointmentsManager({
         forceOutOfHours = true
       }
 
-      // Send scheduled_at as ISO so server parses timezone correctly
       await mutateAppointment(rescheduleAppointment.id, {
         scheduled_at: scheduled.toISOString(),
         force_out_of_hours: forceOutOfHours,
       })
       toast.success("Cita reprogramada")
+      await mutateAppointments()
       window.dispatchEvent(new Event("consultoritas:appointments-updated"))
       setRescheduleOpen(false)
     } catch (error) {
@@ -271,7 +289,7 @@ export function AppointmentsManager({
   const handleCreateManualAppointment = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!currentUser?.id) {
+    if (!activeUser?.id) {
       toast.error("No se pudo identificar al asesor actual")
       return
     }
@@ -282,7 +300,7 @@ export function AppointmentsManager({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          advisor_id: currentUser.id,
+          advisor_id: activeUser.id,
           business_id: businessId || undefined,
           client_name: manualAppointment.client_name,
           client_email: manualAppointment.client_email,
@@ -305,6 +323,7 @@ export function AppointmentsManager({
       }
 
       toast.success("Cita creada correctamente")
+      await mutateAppointments()
       setManualOpen(false)
       setManualAppointment({
         client_name: "",
@@ -409,7 +428,6 @@ export function AppointmentsManager({
                           <Button variant="ghost" size="icon" className="size-8"><MoreHorizontal className="size-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleRescheduleAppointment(app)}>Reprogramar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleConfirmAppointment(app.id)}>Confirmar asistencia</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAppointment(app.id)}>Cancelar Cita</DropdownMenuItem>
                         </DropdownMenuContent>

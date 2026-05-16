@@ -9,7 +9,8 @@ import {
   Settings,
   LogOut,
   CalendarDays,
-  CheckSquare
+  CheckSquare,
+  UserPlus
 } from "lucide-react"
 import {
   Sidebar,
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/sidebar"
 import { ConsultoritasLogo } from "@/components/layout/logo"
 
-export function AdvisorSidebar({ currentView, onNavigate, onLogout }: any) {
+export function AdvisorSidebar({ currentView, onNavigate, onLogout, isPrincipal }: any) {
   const menu = [
     { id: "dashboard", label: "Dashboard Global", icon: LayoutDashboard },
     { id: "clientes", label: "Gestión Clientes", icon: Users },
@@ -31,6 +32,7 @@ export function AdvisorSidebar({ currentView, onNavigate, onLogout }: any) {
     { id: "monitor-ia", label: "Monitor IA", icon: Bot },
     { id: "facturacion", label: "Facturación Despacho", icon: Receipt },
     { id: "compliance", label: "Calendario Fiscal", icon: CheckSquare },
+    ...(isPrincipal ? [{ id: "alta-asesor", label: "Alta de Asesores", icon: UserPlus }] : []),
   ]
 
   return (

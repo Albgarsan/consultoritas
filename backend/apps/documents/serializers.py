@@ -4,6 +4,7 @@ import uuid
 from apps.business.models import Business
 from apps.business.serializers import BusinessSerializer
 from apps.users.serializers import UserSerializer
+from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from rest_framework import serializers
@@ -99,7 +100,7 @@ class DocumentSerializer(serializers.ModelSerializer):
         uploaded_file = validated_data.pop("file")
         base_name = os.path.basename(uploaded_file.name)
         storage_name = default_storage.save(
-            f"documents/{uuid.uuid4()}_{base_name}", ContentFile(uploaded_file.read())
+            f"documents/{uuid.uuid4()}_{base_name}", File(uploaded_file)
         )
 
         validated_data.setdefault("file_name", base_name)

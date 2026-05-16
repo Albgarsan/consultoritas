@@ -1,16 +1,20 @@
+import secrets
+import string
+
 from apps.business.models import Business, UserBusiness
 from apps.documents.models import Document, TaxCalendar
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import Throttled
+from rest_framework.exceptions import PermissionDenied, Throttled
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -52,7 +56,6 @@ class UserViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        from apps.business.models import UserBusiness
 
         business_prefetch = Prefetch(
             "businesses",
@@ -62,26 +65,14 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
         if self.request.user.role == "Asesor":
-            if self.action in {"retrieve", "update", "partial_update", "destroy"}:
-                return (
-                    User.objects.filter(Q(id=self.request.user.id) | ~Q(role="Asesor"))
-                    .prefetch_related(business_prefetch)
-                    .distinct()
-                )
-
             return (
                 User.objects.filter(
-                    Q(id=self.request.user.id)
-                    | Q(
-                        businesses__business__users__user=self.request.user,
-                        role__in=["Autónomo", "Sociedad"],
-                    )
+                    Q(id=self.request.user.id) | Q(role__in=["Autónomo", "Sociedad"])
                 )
                 .prefetch_related(business_prefetch)
                 .distinct()
             )
 
-        # Non-advisor users can only access themselves.
         return User.objects.filter(id=self.request.user.id).prefetch_related(
             business_prefetch
         )
@@ -160,17 +151,92 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[AllowAny])
     def advisors(self, request):
-        advisors = User.objects.filter(role="Asesor").distinct()
+        general = request.query_params.get("general", "false").lower() == "true"
+        if general:
+            # Si general=true, devuelve ÚNICAMENTE asesores principales
+            advisors = User.objects.filter(role="Asesor", is_principal=True).distinct()
+        else:
+            # Si no, devuelve todos los asesores
+            advisors = User.objects.filter(role="Asesor").distinct()
         serializer = self.get_serializer(advisors, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def create_advisor(self, request):
+        """
+        Permite que un Asesor Principal cree otros asesores directamente desde la app.
+        Valida que el usuario sea asesor y tenga is_principal=True.
+        Si no hay contraseña, genera una aleatoria y envía correo de bienvenida.
+        """
+        # 1. Validar permisos: solo Asesor Principal puede crear asesores
+        if request.user.role != "Asesor" or not request.user.is_principal:
+            raise PermissionDenied(
+                "Solo los Asesores Principales pueden crear otros asesores."
+            )
+
+        # 2. Extraer datos del request
+        email = request.data.get("email", "").strip().lower()
+        first_name = request.data.get("first_name", "").strip()
+        last_name = request.data.get("last_name", "").strip()
+        password = request.data.get("password", "").strip()
+        specialties = request.data.get("specialties", [])
+        is_principal = request.data.get("is_principal", False)
+
+        # Validar datos obligatorios
+        if not email or not first_name or not last_name:
+            return Response(
+                {"detail": "Email, first_name y last_name son obligatorios."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verificar que el email no existe
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {"detail": f"El email {email} ya está registrado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 3. Generar contraseña si no se proporciona
+        generated_password = False
+        if not password:
+            # Generar contraseña aleatoria segura
+            chars = string.ascii_letters + string.digits + "!@#$%&"
+            password = "".join(secrets.choice(chars) for _ in range(16))
+            generated_password = True
+
+        # 4. Crear el usuario asesor
+        try:
+            user = User.objects.create_user(
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                role="Asesor",
+                is_staff=True,
+                is_active=True,
+                is_principal=is_principal,
+                specialties=specialties if isinstance(specialties, list) else [],
+            )
+
+            # 5. Si la contraseña fue generada, aquí podrías disparar un signal de envío de correo
+            # Por ahora, incluimos la contraseña generada en la respuesta (mala práctica en producción)
+            response_data = UserSerializer(user).data
+            if generated_password:
+                response_data["generated_password"] = password
+                response_data["password_generated"] = True
+                # TODO: Disparar signal para envío de correo de bienvenida con la contraseña
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response(
+                {"detail": f"Error al crear el asesor: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     @action(detail=False, methods=["get"], permission_classes=[AllowAny])
     def stats(self, request):
-        advisors_count = (
-            User.objects.filter(role="Asesor", businesses__isnull=False)
-            .distinct()
-            .count()
-        )
+        advisors_count = User.objects.filter(role="Asesor").distinct().count()
         clients_count = User.objects.exclude(role="Asesor").distinct().count()
         businesses_count = Business.objects.count()
         documents_count = Document.objects.count()
@@ -239,12 +305,12 @@ class UserViewSet(viewsets.ModelViewSet):
         Prevents data inconsistency if one operation fails.
         """
         with transaction.atomic():
-            # 1. Validate and create user
+            # 1. Validar y crear el usuario base
             user_serializer = self.get_serializer(data=request.data)
             user_serializer.is_valid(raise_exception=True)
             user = user_serializer.save()
 
-            # Persist the role since UserSerializer has it as read_only
+            # Forzar el guardado del rol porque UserSerializer lo trata como read_only
             requested_role = request.data.get("role", "Autónomo")
             if (
                 requested_role in ("Autónomo", "Sociedad")
@@ -253,7 +319,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 user.role = requested_role
                 user.save(update_fields=["role"])
 
-            # 2. Create business if role requires it
+            # 2. Crear la empresa y vincular al cliente como Administrador
             role = request.data.get("role", "Autónomo")
             if role in ("Autónomo", "Sociedad"):
                 from apps.business.models import UserBusiness
@@ -263,21 +329,13 @@ class UserViewSet(viewsets.ModelViewSet):
                     has_employees=request.data.get("has_employees", False),
                     has_office_rent=request.data.get("has_office_rent", False),
                 )
+
+                # Registramos al cliente como administrador exclusivo de su negocio
                 UserBusiness.objects.create(
                     user=user,
                     business=business,
                     role_in_business="Admin",
                 )
-                if (
-                    request.user
-                    and request.user.is_authenticated
-                    and request.user.role == "Asesor"
-                ):
-                    UserBusiness.objects.get_or_create(
-                        user=request.user,
-                        business=business,
-                        role_in_business="Viewer",
-                    )
 
         return Response(
             self.get_serializer(user).data,

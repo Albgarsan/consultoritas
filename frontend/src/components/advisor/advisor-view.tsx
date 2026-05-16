@@ -10,6 +10,14 @@ import { NovedadesFiscales } from "@/components/shared/news-feed"
 import { type TaxCalendarEntry } from "@/lib/api"
 import { useApiData } from "@/lib/use-api"
 
+function parseLocalDateYYYYMMDD(dateStr?: string | null): Date {
+  if (!dateStr || typeof dateStr !== "string") return new Date(NaN)
+  const parts = dateStr.split("-").map(Number)
+  if (parts.length < 3) return new Date(NaN)
+  const [year, month, day] = parts
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
 type BusinessRow = {
   id: string
   name: string
@@ -55,15 +63,15 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
     today.setHours(0, 0, 0, 0)
 
     return [...allCalendar]
-      .filter((row: TaxCalendarEntry) => new Date(row.deadline) >= today)
-      .sort((a: TaxCalendarEntry, b: TaxCalendarEntry) => +new Date(a.deadline) - +new Date(b.deadline))
+      .filter((row: TaxCalendarEntry) => parseLocalDateYYYYMMDD(row.deadline) >= today)
+      .sort((a: TaxCalendarEntry, b: TaxCalendarEntry) => parseLocalDateYYYYMMDD(a.deadline).getTime() - parseLocalDateYYYYMMDD(b.deadline).getTime())
       .slice(0, 5)
   }, [allCalendar])
 
   const overdueCount = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    return allCalendar.filter((row) => !row.is_presented && new Date(row.deadline) < today).length
+    return allCalendar.filter((row) => !row.is_presented && parseLocalDateYYYYMMDD(row.deadline) < today).length
   }, [allCalendar])
 
   const portfolio = useMemo(() => {
@@ -179,8 +187,8 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
           <CardContent className="space-y-3">
             {upcoming.length === 0 && <p className="text-sm text-muted-foreground">No hay vencimientos próximos.</p>}
             {upcoming.map((item) => {
-              const deadline = new Date(item.deadline)
-              const daysLeft = Math.max(0, Math.ceil((+deadline - +new Date()) / (1000 * 60 * 60 * 24)))
+              const deadline = parseLocalDateYYYYMMDD(item.deadline)
+              const daysLeft = Math.max(0, Math.ceil((deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
               return (
                 <div key={item.id} className="p-3 rounded-md border bg-muted/30">
                   <div className="flex items-center justify-between gap-2">

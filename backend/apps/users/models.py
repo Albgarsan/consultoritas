@@ -56,6 +56,10 @@ class User(AbstractUser):
     work_schedule = models.JSONField(
         default=default_work_schedule, blank=True, null=False
     )
+    is_principal = models.BooleanField(
+        default=False,
+        help_text="Indica si es un Asesor Principal con permisos de gestión y citas generales.",
+    )
     last_login = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
