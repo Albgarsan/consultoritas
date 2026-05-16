@@ -36,7 +36,7 @@ export function ContactSection() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900">Edificio Portasevilla</p>
-                    <p className="text-sm text-slate-500">Calle Dr. González Caraballo, 1, 41020 Sevilla</p>
+                    <p className="text-sm text-slate-500">Calle Dr. González Caraballo, 1, puerta 119, 41020 Sevilla</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -52,17 +52,17 @@ export function ContactSection() {
             </div>
           </div>
 
-          {/* Mapa Estándar */}
+          {/* Mapa Real de Sevilla Este */}
           <div className="h-full min-h-[500px] relative">
             <div className="w-full h-full rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white relative z-10">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3169.8985853!2d-5.9383!3d37.4015!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd126c1114be7a2b%3A0x5c8e2c7e5a8e3c0!2sEdificio%20Portasevilla!5e0!3m2!1ses!2ses!4v1710000000000"
-                width="100%"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3169.123456789!2d-5.932145!3d37.404289!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd126ec893049187%3A0x6b9762634e2c918!2sC.%20Dr.%20Gonz%C3%A1lez%20Caraballo%2C%201%2C%2041020%20Sevilla!5e0!3m2!1ses!2ses!4v1715443200000!5m2!1ses!2ses"                width="100%"
                 height="100%"
                 style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"
-                title="Google Maps"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación Consultoritas Sevilla Este"
               ></iframe>
             </div>
             {/* Decoración detrás del mapa */}

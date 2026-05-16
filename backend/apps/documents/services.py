@@ -7,6 +7,7 @@ import os
 import google.generativeai as genai
 import requests
 from django.conf import settings
+from django.core.files.storage import default_storage
 
 from .models import Document, InvoiceData
 
@@ -41,7 +42,7 @@ class OCRService:
                 response.raise_for_status()
                 content = response.content
             else:
-                with open(path_or_url, "rb") as doc_file:
+                with default_storage.open(path_or_url, "rb") as doc_file:
                     content = doc_file.read()
 
             prompt = """

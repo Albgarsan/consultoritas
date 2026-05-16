@@ -8,8 +8,9 @@ import { TeamSection } from '@/components/landing/team';
 import { ContactSection } from '@/components/landing/contact';
 import { AboutSection } from '@/components/landing/about';
 import { AppointmentModal } from '@/components/shared/modals/appointment-modal';
-import { Calculator, Briefcase, Scale, Gavel, CheckCircle2 } from 'lucide-react';
+import { Calculator, Briefcase, Scale, Gavel } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ChatWidget } from '@/components/shared/chat-widget';
 
 export default function LandingPage() {
   const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
@@ -92,6 +93,9 @@ export default function LandingPage() {
       </footer>
 
       <AppointmentModal open={appointmentModalOpen} onOpenChange={setAppointmentModalOpen} />
+
+      <ChatWidget />
+
     </div>
   );
 }

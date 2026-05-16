@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Conversation, DocumentChunk, Message, VectorStore
+from .models import Conversation, DocumentChunk, Message
 
 
 @admin.register(Conversation)
@@ -16,8 +16,3 @@ class MessageAdmin(admin.ModelAdmin):
 @admin.register(DocumentChunk)
 class DocumentChunkAdmin(admin.ModelAdmin):
     list_display = ("id", "document", "page_number")
-
-
-@admin.register(VectorStore)
-class VectorStoreAdmin(admin.ModelAdmin):
-    list_display = ("id", "chunk")

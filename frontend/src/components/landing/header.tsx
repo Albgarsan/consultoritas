@@ -16,8 +16,8 @@ export function Header({ onNavigate, onAccessClick }: HeaderProps) {
 
   const menuItems = [
     { label: 'Conócenos', id: 'about' },
-    { label: 'Equipo', id: 'team' },
     { label: 'Servicios', id: 'services' },
+    { label: 'Equipo', id: 'team' },
     { label: 'Contacto', id: 'contact' },
   ];
 
@@ -47,7 +47,7 @@ export function Header({ onNavigate, onAccessClick }: HeaderProps) {
 
           <div className="hidden md:block">
             <Button onClick={onAccessClick} className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl px-6">
-              Acceso Clientes
+              Acceso Portal
             </Button>
           </div>
 
@@ -72,7 +72,7 @@ export function Header({ onNavigate, onAccessClick }: HeaderProps) {
                   {item.label}
                 </button>
               ))}
-              <Button onClick={onAccessClick} className="w-full bg-accent">Área Privada</Button>
+              <Button onClick={onAccessClick} className="w-full bg-accent">Acceso Portal</Button>
             </div>
           </motion.div>
         )}

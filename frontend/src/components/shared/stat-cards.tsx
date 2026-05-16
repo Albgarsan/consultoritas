@@ -3,34 +3,47 @@
 import { TrendingUp, TrendingDown, Receipt, Wallet, FileText } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-const metrics = [
-  {
-    title: "IVA del Trimestre",
-    value: "3.245,80 €",
-    description: "A pagar el 20 de abril",
-    trend: "up",
-    trendValue: "+12%",
-    icon: Receipt,
-  },
-  {
-    title: "IRPF Previsto",
-    value: "8.920,00 €",
-    description: "Estimación anual",
-    trend: "down",
-    trendValue: "-5%",
-    icon: Wallet,
-  },
-  {
-    title: "Gastos Totales",
-    value: "12.450,30 €",
-    description: "Este trimestre",
-    trend: "up",
-    trendValue: "+8%",
-    icon: FileText,
-  },
-]
+interface FiscalHealthCardsProps {
+  stats?: any
+}
 
-export function FiscalHealthCards() {
+function formatCurrency(value: number) {
+  return value.toLocaleString("es-ES", { style: "currency", currency: "EUR" })
+}
+
+export function FiscalHealthCards({ stats }: FiscalHealthCardsProps) {
+  const ingresos = stats?.totals?.ingresos || 0
+  const gastos = stats?.totals?.gastos || 0
+  const procesados = stats?.processed_count || 0
+  const total = stats?.documents_count || 0
+
+  const metrics = [
+    {
+      title: "Ingresos registrados",
+      value: formatCurrency(ingresos),
+      description: `Rendimiento total`,
+      trend: "up",
+      trendValue: `${procesados}`,
+      icon: Receipt,
+    },
+    {
+      title: "Gastos registrados",
+      value: formatCurrency(gastos),
+      description: `Carga financiera`,
+      trend: "down",
+      trendValue: `${total}`,
+      icon: Wallet,
+    },
+    {
+      title: "Documentos sincronizados",
+      value: String(total),
+      description: "Elementos visibles en tu portal",
+      trend: "up",
+      trendValue: procesados > 0 ? "procesados" : "pendientes",
+      icon: FileText,
+    },
+  ]
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {metrics.map((metric) => (

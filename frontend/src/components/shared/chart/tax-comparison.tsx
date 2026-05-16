@@ -1,43 +1,19 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Cell } from "recharts"
+import { useMemo } from "react"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { TrendingUp, TrendingDown } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface IVAComparisonChartProps {
   period: "trimestre" | "semestre" | "anual"
+  stats?: any
+  isLoading?: boolean
 }
 
-const quarterlyData = [
-  { month: "Ene", soportado: 2480, repercutido: 3885 },
-  { month: "Feb", soportado: 2772, repercutido: 5166 },
-  { month: "Mar", soportado: 2614, repercutido: 5628 },
-]
-
-const semesterData = [
-  { month: "Oct", soportado: 2562, repercutido: 3885 },
-  { month: "Nov", soportado: 2961, repercutido: 4683 },
-  { month: "Dic", soportado: 3528, repercutido: 5901 },
-  { month: "Ene", soportado: 2415, repercutido: 4032 },
-  { month: "Feb", soportado: 2772, repercutido: 5166 },
-  { month: "Mar", soportado: 2614, repercutido: 5628 },
-]
-
-const annualData = [
-  { month: "Abr", soportado: 2100, repercutido: 3200 },
-  { month: "May", soportado: 2300, repercutido: 3500 },
-  { month: "Jun", soportado: 2450, repercutido: 3800 },
-  { month: "Jul", soportado: 2200, repercutido: 3400 },
-  { month: "Ago", soportado: 1800, repercutido: 2800 },
-  { month: "Sep", soportado: 2400, repercutido: 3700 },
-  { month: "Oct", soportado: 2562, repercutido: 3885 },
-  { month: "Nov", soportado: 2961, repercutido: 4683 },
-  { month: "Dic", soportado: 3528, repercutido: 5901 },
-  { month: "Ene", soportado: 2415, repercutido: 4032 },
-  { month: "Feb", soportado: 2772, repercutido: 5166 },
-  { month: "Mar", soportado: 2614, repercutido: 5628 },
-]
+const monthLabels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 const chartConfig = {
   soportado: {
@@ -50,14 +26,72 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function IVAComparisonChart({ period }: IVAComparisonChartProps) {
-  const data = period === "trimestre" ? quarterlyData : period === "semestre" ? semesterData : annualData
+export function IVAComparisonChart({ period, stats, isLoading = false }: IVAComparisonChartProps) {
+  const { data, totalSoportado, totalRepercutido, balance, isPositive } = useMemo(() => {
+    const monthCount = period === "trimestre" ? 3 : period === "semestre" ? 6 : 12
 
-  // Calculate totals
-  const totalSoportado = data.reduce((sum, item) => sum + item.soportado, 0)
-  const totalRepercutido = data.reduce((sum, item) => sum + item.repercutido, 0)
-  const balance = totalRepercutido - totalSoportado
-  const isPositive = balance >= 0
+    const now = new Date()
+    const chartData = Array.from({ length: monthCount }, (_, index) => {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1 - index), 1)
+      const yr = monthDate.getFullYear()
+      const mStart = (monthDate.getMonth() + 1).toString().padStart(2, '0')
+      const mStr = `${yr}-${mStart}`
+
+      const found = (stats?.trends || []).find((t: any) => t.name === mStr)
+
+      return {
+        month: monthLabels[monthDate.getMonth()],
+        soportado: found?.soportado || 0,
+        repercutido: found?.repercutido || 0
+      }
+    })
+
+    const totSoportado = chartData.reduce((sum, item) => sum + item.soportado, 0)
+    const totRepercutido = chartData.reduce((sum, item) => sum + item.repercutido, 0)
+    const bal = totRepercutido - totSoportado
+
+    return {
+      data: chartData,
+      totalSoportado: totSoportado,
+      totalRepercutido: totRepercutido,
+      balance: bal,
+      isPositive: bal >= 0
+    }
+  }, [period, stats])
+
+  if (isLoading) {
+    return (
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold">Comparativa IVA</CardTitle>
+              <CardDescription>IVA Soportado vs Repercutido</CardDescription>
+            </div>
+            <Skeleton className="h-8 w-24 rounded-lg" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[250px] w-full mt-4" />
+          <div className="grid grid-cols-2 gap-4 mt-6">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!stats || !stats.trends || stats.trends.length === 0) {
+    return (
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Comparativa IVA</CardTitle>
+          <CardDescription>No hay documentos sincronizados para calcular el IVA.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
 
   return (
     <Card className="border-border/50 shadow-sm">

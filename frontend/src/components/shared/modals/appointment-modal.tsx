@@ -1,6 +1,6 @@
-"use client"
+﻿"use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Scale,
   Calculator,
@@ -12,7 +12,6 @@ import {
   Clock,
   CalendarDays,
   User,
-  X,
   Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,16 +21,36 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ConsultoritasLogo } from "@/components/layout/logo"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { apiFetch } from "@/lib/api"
 
 interface AppointmentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  prefilledClientName?: string
+  prefilledClientEmail?: string
+  hideIdentityFields?: boolean
 }
+
+interface Advisor {
+  id: string
+  name: string
+  role: string
+  initials: string
+  color: string
+  isPartner: boolean
+  specialties: string[]
+}
+
+const ALL_SPECIALTIES = ["fiscal", "laboral", "contable", "judicial"]
 
 const advisoryTypes = [
   {
@@ -81,83 +100,52 @@ const advisoryTypes = [
   },
 ]
 
-// All advisors with their specialties
-const allAdvisors = [
-  {
-    id: "antonio-garcia",
-    name: "Antonio García",
-    role: "Socio Principal - Experto Legal",
-    initials: "AG",
-    color: "bg-primary/20 text-primary",
-    isPartner: true,
-    specialties: ["judicial", "contable", "general"],
-  },
-  {
-    id: "carmen-ruiz",
-    name: "Carmen Ruiz",
-    role: "Socia Principal - Especialista Fiscal",
-    initials: "CR",
-    color: "bg-accent/20 text-accent",
-    isPartner: true,
-    specialties: ["fiscal", "general"],
-  },
-  {
-    id: "miguel-fernandez",
-    name: "Miguel Fernández",
-    role: "Asesor Laboral Senior",
-    initials: "MF",
-    color: "bg-emerald-100 text-emerald-700",
-    isPartner: false,
-    specialties: ["laboral"],
-  },
-  {
-    id: "laura-martin",
-    name: "Laura Martín",
-    role: "Asesora Contable",
-    initials: "LM",
-    color: "bg-amber-100 text-amber-700",
-    isPartner: false,
-    specialties: ["contable"],
-  },
-]
-
-// Simulated available time slots by advisor
-const advisorSlots: Record<string, { date: Date; times: string[] }[]> = {
-  "antonio-garcia": [
-    { date: new Date(2026, 2, 18), times: ["09:00", "10:30", "12:00"] },
-    { date: new Date(2026, 2, 19), times: ["09:30", "11:00"] },
-    { date: new Date(2026, 2, 20), times: ["09:00", "10:00", "11:00", "12:00"] },
-    { date: new Date(2026, 2, 23), times: ["09:00", "10:30", "12:00"] },
-    { date: new Date(2026, 2, 24), times: ["09:30", "11:00", "12:30"] },
-  ],
-  "carmen-ruiz": [
-    { date: new Date(2026, 2, 18), times: ["10:00", "11:30"] },
-    { date: new Date(2026, 2, 19), times: ["09:00", "10:00", "11:00"] },
-    { date: new Date(2026, 2, 20), times: ["09:30", "12:00"] },
-    { date: new Date(2026, 2, 23), times: ["09:00", "10:00", "11:30"] },
-    { date: new Date(2026, 2, 25), times: ["09:00", "10:30", "12:00"] },
-  ],
-  "miguel-fernandez": [
-    { date: new Date(2026, 2, 18), times: ["09:00", "12:00"] },
-    { date: new Date(2026, 2, 19), times: ["10:30", "11:30"] },
-    { date: new Date(2026, 2, 23), times: ["09:30", "11:00", "12:30"] },
-    { date: new Date(2026, 2, 24), times: ["09:00", "10:00", "11:00"] },
-  ],
-  "laura-martin": [
-    { date: new Date(2026, 2, 18), times: ["09:30", "11:00", "12:30"] },
-    { date: new Date(2026, 2, 19), times: ["09:00", "10:30"] },
-    { date: new Date(2026, 2, 20), times: ["10:00", "11:00", "12:00"] },
-    { date: new Date(2026, 2, 24), times: ["09:30", "11:00"] },
-  ],
-}
-
-export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) {
+export function AppointmentModal({
+  open,
+  onOpenChange,
+  prefilledClientName,
+  prefilledClientEmail,
+  hideIdentityFields = false,
+}: AppointmentModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [selectedAdvisor, setSelectedAdvisor] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1))
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  const [dbAdvisors, setDbAdvisors] = useState<Advisor[]>([])
+
+  useEffect(() => {
+    if (open) {
+      if (prefilledClientName) setName(prefilledClientName)
+      if (prefilledClientEmail) setEmail(prefilledClientEmail)
+      apiFetch("/api/users/advisors/")
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const filtered = data.filter(u => u.role === "Asesor" || u.is_staff)
+            setDbAdvisors(filtered.map(u => ({
+              id: String(u.id),
+              name: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.email,
+              role: u.role || "Asesor",
+              initials: u.first_name ? u.first_name[0] : u.email[0].toUpperCase(),
+              color: "bg-primary/20 text-primary",
+              isPartner: Boolean(u.is_staff),
+              specialties: Array.isArray(u.specialties) && u.specialties.length > 0
+                ? u.specialties
+                : ALL_SPECIALTIES,
+            })))
+          } else {
+            toast.error("No se pudieron cargar los asesores disponibles")
+          }
+        })
+        .catch(() => toast.error("No se pudieron cargar los asesores disponibles"))
+    }
+  }, [open, prefilledClientName, prefilledClientEmail])
+
+  const activeAdvisors = dbAdvisors
 
   const resetAndClose = () => {
     setStep(1)
@@ -181,13 +169,29 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
   const getAvailableAdvisors = () => {
     if (!selectedType) return []
 
-    // For general/none, show only partners
     if (selectedType === "general") {
-      return allAdvisors.filter(a => a.isPartner)
+      const partners = activeAdvisors.filter(a => a.isPartner)
+      return partners.length > 0 ? partners : activeAdvisors
     }
 
-    // For specific areas, show advisors of that area + "Any" option
-    return allAdvisors.filter(a => a.specialties.includes(selectedType))
+    return activeAdvisors.filter(a => a.specialties.includes(selectedType))
+  }
+
+  const generateAvailableDates = () => {
+    const dates: Date[] = []
+    const current = new Date()
+    let offset = 1
+
+    while (dates.length < 20) {
+      const candidate = new Date(current.getFullYear(), current.getMonth(), current.getDate() + offset)
+      const weekDay = candidate.getDay()
+      if (weekDay !== 0 && weekDay !== 6) {
+        dates.push(new Date(candidate.getFullYear(), candidate.getMonth(), candidate.getDate()))
+      }
+      offset += 1
+    }
+
+    return dates
   }
 
   // Step 2: Select advisor
@@ -201,55 +205,44 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
   // Get available dates for selected advisor(s)
   const getAvailableDates = () => {
     if (!selectedAdvisor) return []
-
-    if (selectedAdvisor === "any") {
-      // Combine all dates from available advisors for this specialty
-      const availableAdvisors = getAvailableAdvisors()
-      const allDates: Date[] = []
-      availableAdvisors.forEach(advisor => {
-        const slots = advisorSlots[advisor.id] || []
-        slots.forEach(slot => {
-          if (!allDates.some(d => d.getTime() === slot.date.getTime())) {
-            allDates.push(slot.date)
-          }
-        })
-      })
-      return allDates
-    }
-
-    const slots = advisorSlots[selectedAdvisor] || []
-    return slots.map(s => s.date)
+    return generateAvailableDates()
   }
 
   // Get time slots for selected date
   const getTimeSlotsForDate = (date: Date) => {
     if (!selectedAdvisor) return []
+    const isFriday = date.getDay() === 5
+    const baseTimes = isFriday
+      ? ["09:00", "10:00", "11:00", "12:00"]
+      : ["09:00", "10:00", "11:00", "12:00", "16:00", "17:00"]
 
     if (selectedAdvisor === "any") {
       const availableAdvisors = getAvailableAdvisors()
       const slots: { time: string; advisorId: string; advisorName: string }[] = []
       availableAdvisors.forEach(advisor => {
-        const advisorSlotData = advisorSlots[advisor.id] || []
-        const daySlot = advisorSlotData.find(s => s.date.getTime() === date.getTime())
-        if (daySlot) {
-          daySlot.times.forEach(time => {
-            slots.push({ time, advisorId: advisor.id, advisorName: advisor.name })
-          })
-        }
+        baseTimes.forEach(time => {
+          slots.push({ time, advisorId: advisor.id, advisorName: advisor.name })
+        })
       })
       return slots.sort((a, b) => a.time.localeCompare(b.time))
     }
 
-    const slots = advisorSlots[selectedAdvisor] || []
-    const daySlot = slots.find(s => s.date.getTime() === date.getTime())
-    if (!daySlot) return []
-
-    const advisor = allAdvisors.find(a => a.id === selectedAdvisor)
-    return daySlot.times.map(time => ({
+    const advisor = activeAdvisors.find(a => a.id === selectedAdvisor)
+    return baseTimes.map(time => ({
       time,
       advisorId: selectedAdvisor,
       advisorName: advisor?.name || ""
     }))
+    .filter(slot => {
+      // Exclude past times for today
+      const now = new Date()
+      const isToday = date.toDateString() === now.toDateString()
+      if (!isToday) return true
+      const [h, m] = slot.time.split(":").map(Number)
+      const mins = h * 60 + m
+      const currentMins = now.getHours() * 60 + now.getMinutes()
+      return mins > currentMins + 30
+    })
   }
 
   const handleSlotSelect = (time: string, advisorId: string) => {
@@ -287,12 +280,15 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
   }
 
   const selectedTypeData = advisoryTypes.find(t => t.id === selectedType)
-  const selectedAdvisorData = allAdvisors.find(a => a.id === selectedAdvisor)
+  const selectedAdvisorData = activeAdvisors.find(a => a.id === selectedAdvisor)
 
   return (
     <Dialog open={open} onOpenChange={resetAndClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4 border-b">
+          <DialogDescription className="sr-only">
+            Formulario para agendar una cita con Consultoritas
+          </DialogDescription>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-3">
               <ConsultoritasLogo variant="icon" />
@@ -585,7 +581,7 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                       <div>
                         <p className="text-muted-foreground">Asesor</p>
                         <p className="font-medium text-foreground">
-                          {allAdvisors.find(a => a.id === selectedAdvisor)?.name || selectedAdvisorData?.name}
+                          {activeAdvisors.find(a => a.id === selectedAdvisor)?.name || selectedAdvisorData?.name}
                         </p>
                       </div>
                       <div>
@@ -602,13 +598,80 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                   </CardContent>
                 </Card>
 
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1" onClick={() => { setSelectedTime(null); setSelectedDate(null); }}>
-                    Modificar
-                  </Button>
-                  <Button className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={resetAndClose}>
-                    Confirmar Cita
-                  </Button>
+                                                <div className="space-y-4 pt-4 border-t">
+                                                {!hideIdentityFields ? (
+                                                  <div className="grid gap-3">
+                                                    <div className="space-y-1">
+                                                      <Label>Nombre completo</Label>
+                                                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Ana Garcia" />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                      <Label>Correo electrónico</Label>
+                                                      <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ana@ejemplo.com" />
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <Card className="border-border/50 bg-muted/30">
+                                                    <CardContent className="p-4 grid gap-1 text-sm">
+                                                      <p className="text-muted-foreground">Cliente</p>
+                                                      <p className="font-medium">{prefilledClientName || name || "Cliente"}</p>
+                                                      <p className="text-muted-foreground mt-2">Correo</p>
+                                                      <p className="font-medium">{prefilledClientEmail || email || "-"}</p>
+                                                    </CardContent>
+                                                  </Card>
+                                                )}
+                  <div className="text-sm text-center text-muted-foreground">
+                                                  {!hideIdentityFields && <>¿Ya tienes cuenta? <a href="/login" className="text-accent underline font-medium cursor-pointer">Iniciar sesión</a></>}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1" onClick={() => { setSelectedTime(null); setSelectedDate(null); }}>
+                      Modificar
+                    </Button>
+                    <Button
+                      className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
+                      disabled={hideIdentityFields ? (!selectedDate || !selectedTime) : (!name || !email || !selectedDate || !selectedTime)}
+                      onClick={async () => {
+                        try {
+                            // Validate selected datetime is in the future
+                            if (!selectedDate || !selectedTime) {
+                              toast.error('Selecciona fecha y hora válidas')
+                              return
+                            }
+                            const [sh, sm] = selectedTime.split(":").map(Number)
+                            const scheduled = new Date(selectedDate)
+                            scheduled.setHours(sh, sm, 0, 0)
+                            if (scheduled.getTime() <= Date.now()) {
+                              toast.error('No puedes agendar una cita en el pasado')
+                              return
+                            }
+
+                            const res = await apiFetch("/api/business/appointments/", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                advisor_id: selectedAdvisor,
+                                appointment_type: selectedTypeData?.title || "General",
+                                client_name: name,
+                                client_email: email,
+                                date: selectedDate ? selectedDate.toISOString().slice(0, 10) : undefined,
+                                time: selectedTime,
+                              }),
+                            })
+                          if (res.ok) {
+                            toast.success('Reserva confirmada con éxito')
+                            window.dispatchEvent(new Event("consultoritas:appointments-updated"))
+                            resetAndClose()
+                          } else {
+                            const errorData = await res.json().catch(() => ({}))
+                            toast.error(errorData.detail || errorData.error || errorData.scheduled_at || 'Error al confirmar la reserva')
+                          }
+                        } catch {
+                          toast.error('Error de red')
+                        }
+                      }}>
+                      Confirmar Cita
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
