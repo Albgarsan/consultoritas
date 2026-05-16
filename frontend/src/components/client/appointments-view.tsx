@@ -152,6 +152,7 @@ export function ClientAppointmentsView({
     const dayKey = dayNames[dayOfWeek]
     const schedule = advisor.work_schedule || {}
     const dayCfg = schedule[dayKey]
+    if (dayCfg && dayCfg.enabled === false) return []
 
     // Deshabilitar sábado (6) y domingo (0) si el asesor no tiene configuración
     const isSaturdayOrSunday = dayOfWeek === 0 || dayOfWeek === 6
@@ -382,13 +383,18 @@ export function ClientAppointmentsView({
                     day_today: "bg-accent/20 text-accent font-bold",
                   }}
                   disabled={(date) => {
-                    if (date < new Date()) return true
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const dateNormalized = new Date(date)
+                    dateNormalized.setHours(0, 0, 0, 0)
+                    if (dateNormalized < today) return true
                     // Deshabilitar sábados (6) y domingos (0) si el asesor no trabaja esos días
                     const dayOfWeek = date.getDay()
                     const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
                     const dayKey = dayNames[dayOfWeek]
                     const schedule = selectedAppointment?.advisor?.work_schedule || {}
                     const dayCfg = schedule[dayKey]
+                    if (dayCfg && dayCfg.enabled === false) return true
                     const isSaturdayOrSunday = dayOfWeek === 0 || dayOfWeek === 6
                     if (isSaturdayOrSunday && (!dayCfg || (dayCfg && !dayCfg.enabled))) {
                       return true

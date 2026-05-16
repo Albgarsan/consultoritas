@@ -1,20 +1,30 @@
-from apps.business.models import Business
-from apps.documents.models import Document
+from apps.business.models import Business, UserBusiness
+from apps.documents.models import Document, TaxCalendar
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth import update_session_auth_hash
+from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import Throttled
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 
 from .models import User
 from .serializers import ClientListSerializer, PasswordChangeSerializer, UserSerializer
+
+
+class UserPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 class LoginRateThrottle(SimpleRateThrottle):
@@ -35,6 +45,11 @@ class LoginRateThrottle(SimpleRateThrottle):
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = UserPagination
+    filter_backends = [SearchFilter, OrderingFilter, DjangoFilterBackend]
+    search_fields = ["email", "first_name", "last_name"]
+    ordering_fields = ["created_at", "last_name", "email"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         from apps.business.models import UserBusiness
@@ -126,11 +141,26 @@ class UserViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    def destroy(self, request, *args, **kwargs):
+        """Elimina un usuario y limpia en cascada su empresa y calendarios asociados."""
+        user = self.get_object()
+
+        with transaction.atomic():
+            user_businesses = UserBusiness.objects.filter(
+                user=user, role_in_business="Admin"
+            )
+            for ub in user_businesses:
+                business = ub.business
+                TaxCalendar.objects.filter(business=business).delete()
+                business.delete()
+
+            user.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=False, methods=["get"], permission_classes=[AllowAny])
     def advisors(self, request):
-        advisors = User.objects.filter(
-            role="Asesor", businesses__isnull=False
-        ).distinct()
+        advisors = User.objects.filter(role="Asesor").distinct()
         serializer = self.get_serializer(advisors, many=True)
         return Response(serializer.data)
 
@@ -172,6 +202,11 @@ class UserViewSet(viewsets.ModelViewSet):
                 business_prefetch
             )
 
+        page = self.paginate_queryset(clients)
+        if page is not None:
+            serializer = ClientListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = ClientListSerializer(clients, many=True)
         return Response(serializer.data)
 
@@ -191,3 +226,60 @@ class UserViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[IsAuthenticated],
+        url_path="create-with-business",
+    )
+    def create_with_business(self, request):
+        """
+        Atomically create a new user + associated business in a single transaction.
+        Prevents data inconsistency if one operation fails.
+        """
+        with transaction.atomic():
+            # 1. Validate and create user
+            user_serializer = self.get_serializer(data=request.data)
+            user_serializer.is_valid(raise_exception=True)
+            user = user_serializer.save()
+
+            # Persist the role since UserSerializer has it as read_only
+            requested_role = request.data.get("role", "Autónomo")
+            if (
+                requested_role in ("Autónomo", "Sociedad")
+                and user.role != requested_role
+            ):
+                user.role = requested_role
+                user.save(update_fields=["role"])
+
+            # 2. Create business if role requires it
+            role = request.data.get("role", "Autónomo")
+            if role in ("Autónomo", "Sociedad"):
+                from apps.business.models import UserBusiness
+
+                business = Business.objects.create(
+                    name=f"{user.get_full_name()}",
+                    has_employees=request.data.get("has_employees", False),
+                    has_office_rent=request.data.get("has_office_rent", False),
+                )
+                UserBusiness.objects.create(
+                    user=user,
+                    business=business,
+                    role_in_business="Admin",
+                )
+                if (
+                    request.user
+                    and request.user.is_authenticated
+                    and request.user.role == "Asesor"
+                ):
+                    UserBusiness.objects.get_or_create(
+                        user=request.user,
+                        business=business,
+                        role_in_business="Viewer",
+                    )
+
+        return Response(
+            self.get_serializer(user).data,
+            status=status.HTTP_201_CREATED,
+        )

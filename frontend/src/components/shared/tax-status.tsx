@@ -94,6 +94,8 @@ interface TaxStatusProps {
 }
 
 export function TaxStatus({ documents = [], calendarEntries = [], useRealCalendar = false }: TaxStatusProps) {
+  const isDev = process.env.NODE_ENV === "development"
+
   if (useRealCalendar) {
     if (calendarEntries.length === 0) {
       return (
@@ -173,7 +175,7 @@ export function TaxStatus({ documents = [], calendarEntries = [], useRealCalenda
     }
   })
 
-  const itemsToRender = documentBasedItems.length > 0 ? documentBasedItems : mockTaxItems
+  const itemsToRender = documentBasedItems.length > 0 ? documentBasedItems : isDev ? mockTaxItems : []
 
   return (
     <Card className="border-border/50 shadow-sm">

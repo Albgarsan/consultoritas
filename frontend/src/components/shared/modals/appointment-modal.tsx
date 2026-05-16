@@ -143,7 +143,7 @@ export function AppointmentModal({
         })
         .catch(() => toast.error("No se pudieron cargar los asesores disponibles"))
     }
-  }, [open])
+  }, [open, prefilledClientName, prefilledClientEmail])
 
   const activeAdvisors = dbAdvisors
 
@@ -629,7 +629,7 @@ export function AppointmentModal({
                     </Button>
                     <Button
                       className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
-                      disabled={!name || !email}
+                      disabled={hideIdentityFields ? (!selectedDate || !selectedTime) : (!name || !email || !selectedDate || !selectedTime)}
                       onClick={async () => {
                         try {
                             // Validate selected datetime is in the future

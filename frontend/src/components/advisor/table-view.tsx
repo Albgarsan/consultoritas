@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Plus,
   TrendingUp,
@@ -43,6 +43,7 @@ import {
 import { apiFetch } from "@/lib/api"
 import { DocumentFilter } from "@/components/shared/document-filter"
 import { toast } from "sonner"
+import { useApiData } from "@/lib/use-api"
 
 const EXCEL_HEADER_FILL = "1E3A8A"
 const EXCEL_ZEBRA_FILL = "F8FAFC"
@@ -111,13 +112,6 @@ type PaginatedDocumentsResponse = {
   data?: BillingDocument[]
 }
 
-type PageState = {
-  count: number
-  next: string | null
-  previous: string | null
-  page: number
-}
-
 const statusConfig: Record<string, StatusVisual> = {
   pendiente: { label: "Pendiente", className: "bg-amber-500/10 text-amber-600 border-0" },
   procesado: { label: "Procesado", className: "bg-emerald-500/10 text-emerald-600 border-0" },
@@ -160,15 +154,7 @@ function toLocaleDate(value?: string) {
   return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString()
 }
 
-export function FacturacionView({ documents = [], businessId }: { documents?: BillingDocument[]; businessId?: string }) {
-  const [docs, setDocs] = useState<BillingDocument[]>(documents)
-  const [pageState, setPageState] = useState<PageState>({
-    count: 0,
-    next: null,
-    previous: null,
-    page: 1,
-  })
-  const pageRef = useRef(1)
+export function FacturacionView({ businessId }: { businessId?: string }) {
   const [activeTab, setActiveTab] = useState("recibidas")
   const [clientFilter, setClientFilter] = useState("all")
   const [docFilters, setDocFilters] = useState<DocumentFilters>({})
@@ -179,96 +165,50 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
   const [createType, setCreateType] = useState<"Factura" | "Ingreso">("Factura")
   const [createClientId, setCreateClientId] = useState("")
   const [exportClientId, setExportClientId] = useState("")
-  const [clients, setClients] = useState<ClientOption[]>([])
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewName, setPreviewName] = useState("")
 
   useEffect(() => {
-    let active = true
-    ;(async () => {
-      try {
-        const response = await apiFetch(`/api/users/clients/`)
-        if (!response.ok) {
-          setClients([])
-          return
-        }
-        const data = await response.json().catch(() => [])
-        if (!active) return
-
-        const parsed = Array.isArray(data) ? data : (data && (data.results || data.data) ? (data.results || data.data) : [])
-        setClients(parsed)
-        if (parsed.length > 0) {
-          const firstId = String(parsed[0].id)
-          setCreateClientId((prev) => prev || firstId)
-          setExportClientId((prev) => prev || firstId)
-        }
-      } catch {
-        setClients([])
-      }
-    })()
-
     return () => {
-      active = false
-    }
-  }, [])
-
-  const fetchDocuments = useCallback(async (page = 1) => {
-    try {
-      const allResults: BillingDocument[] = []
-      let nextUrl: string | null = `/api/documents/?page=1`
-      let count = 0
-
-      if (businessId) {
-        const params = new URLSearchParams()
-        params.set("business_id", businessId)
-        nextUrl = `/api/documents/?${params.toString()}&page=1`
+      if (previewUrl) {
+        window.URL.revokeObjectURL(previewUrl)
       }
-
-      // Fetch all pages until exhausted
-      while (nextUrl) {
-        const res = await apiFetch(nextUrl)
-        if (!res.ok) break
-        const data = (await res.json().catch(() => null))
-        if (!data) break
-
-        const parsed = Array.isArray(data) ? { results: data, next: null } : data
-        const results = parsed.results || parsed.data || []
-        allResults.push(...results)
-        count = parsed.count || allResults.length
-        nextUrl = parsed.next || null
-      }
-
-      pageRef.current = page
-      setDocs(allResults)
-      setPageState({
-        count: Number(count || allResults.length || 0),
-        next: null,
-        previous: null,
-        page: 1,
-      })
-    } catch {
-      // ignore
     }
-  }, [businessId])
+  }, [previewUrl])
+
+  const { data: docs = [], mutate: mutateDocs, isLoading: isDocsLoading } = useApiData<BillingDocument[]>(
+    businessId ? `/api/documents/?business_id=${businessId}` : "/api/documents/",
+    {
+      dedupingInterval: 60_000,
+    },
+  )
+  const { data: clients = [], mutate: mutateClients } = useApiData<ClientOption[]>("/api/users/clients/", {
+    dedupingInterval: 30_000,
+  })
 
   useEffect(() => {
     const refresh = () => {
-      fetchDocuments(pageRef.current).catch(() => {})
+      void mutateDocs()
+      void mutateClients()
     }
+
     window.addEventListener("consultoritas:refresh", refresh)
-    // Trigger initial load and cleanup
-    fetchDocuments(1).catch(() => {})
+    window.addEventListener("consultoritas:documents-updated", refresh)
+    window.addEventListener("consultoritas:clients-updated", refresh)
     return () => {
       window.removeEventListener("consultoritas:refresh", refresh)
+      window.removeEventListener("consultoritas:documents-updated", refresh)
+      window.removeEventListener("consultoritas:clients-updated", refresh)
     }
-  }, [fetchDocuments])
+  }, [mutateClients, mutateDocs])
 
-  const facturasRecibidas = docs.filter((d) => {
+  const facturasRecibidas = useMemo(() => docs.filter((d) => {
     const type = d.doc_type?.toLowerCase()
     return type === "factura" || type === "gasto"
-  })
-  const facturasEmitidas = docs.filter((d) => d.doc_type?.toLowerCase() === "ingreso")
+  }), [docs])
+
+  const facturasEmitidas = useMemo(() => docs.filter((d) => d.doc_type?.toLowerCase() === "ingreso"), [docs])
 
   const uniqueClients = useMemo(() => {
     const names = new Set<string>()
@@ -363,7 +303,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
         throw new Error(err.detail || err.error || "No se pudo eliminar el documento")
       }
       toast.success("Documento eliminado")
-      try { window.dispatchEvent(new Event("consultoritas:refresh")) } catch {}
+      await mutateDocs()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo eliminar el documento")
     }
@@ -552,7 +492,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
       toast.success("Factura creada correctamente")
       setCreateOpen(false)
       setCreateFile(null)
-      window.dispatchEvent(new Event("consultoritas:refresh"))
+      await mutateDocs()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo crear la factura")
     } finally {
@@ -560,26 +500,13 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
     }
   }
 
-  const totalIngresos = filteredEmitidas
+  const totalIngresos = useMemo(() => filteredEmitidas
     .filter((f) => ["pagada", "procesado"].includes((f.status || "").toLowerCase()))
-    .reduce((acc, f) => acc + (f.amount || 0), 0)
+    .reduce((acc, f) => acc + (f.amount || 0), 0), [filteredEmitidas])
 
-  const totalGastos = filteredRecibidas
+  const totalGastos = useMemo(() => filteredRecibidas
     .filter((f) => ["pagada", "procesado"].includes((f.status || "").toLowerCase()))
-    .reduce((acc, f) => acc + (f.amount || 0), 0)
-
-  const totalPages = Math.max(1, Math.ceil((pageState.count || docs.length || 0) / 20))
-  const goToPreviousPage = () => {
-    if (pageState.previous && pageState.page > 1) {
-      fetchDocuments(pageState.page - 1).catch(() => {})
-    }
-  }
-
-  const goToNextPage = () => {
-    if (pageState.next) {
-      fetchDocuments(pageState.page + 1).catch(() => {})
-    }
-  }
+    .reduce((acc, f) => acc + (f.amount || 0), 0), [filteredRecibidas])
 
   return (
     <div className="space-y-6">
@@ -739,16 +666,8 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
               </Table>
               <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
                 <p className="text-sm text-muted-foreground">
-                  Página {pageState.page} de {totalPages} · {pageState.count} facturas
+                  {isDocsLoading ? "Cargando facturas..." : `${docs.length} facturas cargadas`}
                 </p>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={goToPreviousPage} disabled={!pageState.previous}>
-                    Anterior
-                  </Button>
-                  <Button onClick={goToNextPage} disabled={!pageState.next}>
-                    Siguiente
-                  </Button>
-                </div>
               </div>
             </CardContent>
           </TabsContent>
@@ -828,16 +747,8 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
               </Table>
               <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
                 <p className="text-sm text-muted-foreground">
-                  Página {pageState.page} de {totalPages} · {pageState.count} facturas
+                  {isDocsLoading ? "Cargando facturas..." : `${docs.length} facturas cargadas`}
                 </p>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={goToPreviousPage} disabled={!pageState.previous}>
-                    Anterior
-                  </Button>
-                  <Button onClick={goToNextPage} disabled={!pageState.next}>
-                    Siguiente
-                  </Button>
-                </div>
               </div>
             </CardContent>
           </TabsContent>

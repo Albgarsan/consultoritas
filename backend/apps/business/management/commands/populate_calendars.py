@@ -1,5 +1,3 @@
-from datetime import date
-
 from apps.business.models import Business
 from apps.business.signals import ensure_business_tax_calendar
 from apps.documents.models import TaxCalendar
@@ -34,9 +32,9 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"Processing {total} businesses..."))
 
-        with transaction.atomic():
-            for i, business in enumerate(businesses, 1):
-                try:
+        for i, business in enumerate(businesses, 1):
+            try:
+                with transaction.atomic():
                     owner_link = (
                         business.users.select_related("user")
                         .filter(role_in_business="Admin")
@@ -58,12 +56,13 @@ class Command(BaseCommand):
                     self.stdout.write(
                         f"[{i}/{total}] ✓ {business.name} (role: {owner_role})"
                     )
-                except Exception as e:
-                    self.stdout.write(
-                        self.style.ERROR(
-                            f"[{i}/{total}] ✗ {business.name} (ID: {business.id}): {str(e)}"
-                        )
+            except Exception as e:
+                skipped += 1
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"[{i}/{total}] ✗ {business.name} (ID: {business.id}): {str(e)}"
                     )
+                )
 
         self.stdout.write(
             self.style.SUCCESS(

@@ -74,15 +74,36 @@ class BusinessViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def tax_calendar(self, request):
+        year = int(request.query_params.get("year", timezone.now().year))
+
         if getattr(request.user, "role", None) == "Asesor":
-            queryset = TaxCalendar.objects.select_related("business").all()
+            queryset = (
+                TaxCalendar.objects.filter(deadline__year=year)
+                .select_related("business")
+                .all()
+            )
         else:
             queryset = TaxCalendar.objects.filter(
-                business__users__user=request.user
+                business__users__user=request.user, deadline__year=year
             ).select_related("business")
 
         serializer = TaxCalendarSerializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="my_business")
+    def retrieve_my_business(self, request):
+        """Devuelve los datos de la empresa vinculada al cliente logueado."""
+        try:
+            user_business = UserBusiness.objects.select_related("business").get(
+                user=request.user, role_in_business="Admin"
+            )
+            serializer = self.get_serializer(user_business.business)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except UserBusiness.DoesNotExist:
+            return Response(
+                {"detail": "No se encontró ninguna empresa vinculada a este usuario."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
 
 class UserBusinessViewSet(viewsets.ModelViewSet):

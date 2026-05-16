@@ -30,12 +30,12 @@ class Command(BaseCommand):
             "--password",
             type=str,
             default=None,
-            help="Password to use for all seed users. If not provided, a strong random password is generated.",
+            help="Password to use for all seed users. If not provided, 'password123' is used.",
         )
 
     def handle(self, *args, **options):
-        # Generate or use provided password
-        seed_password = options.get("password") or self._generate_strong_password()
+        # Revertido el fallback a la contraseña estática estándar para desarrollo local conveniente
+        seed_password = options.get("password") or "password123"
 
         self.stdout.write(
             self.style.WARNING("Cleaning existing users, businesses and documents...")
@@ -301,53 +301,6 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Populating fiscal calendars..."))
         call_command("populate_calendars", clear=True)
-        # Ensure Cliente 1 has fixed Q1 2026 overdue entries for immediate INCIDENCIA tests.
-        period_start = date(2026, 1, 1)
-        period_end = date(2026, 3, 31)
-        overdue_date = date(2026, 4, 20)
-        first_business = created_businesses[0]
-
-        # Only inject overdue entries if an equivalent entry doesn't already exist
-        desired = [
-            ("IVA", "Seed stress case: overdue IVA"),
-            ("IRPF", "Seed stress case: overdue IRPF"),
-            ("Retenciones", "Seed stress case: overdue Retenciones"),
-            ("Pagos a Cuenta", "Seed stress case: overdue Pagos a Cuenta"),
-        ]
-        created_count = 0
-        for tax_type, notes in desired:
-            exists = TaxCalendar.objects.filter(
-                business=first_business,
-                tax_type=tax_type,
-                period_start=period_start,
-                period_end=period_end,
-            ).exists()
-            if exists:
-                self.stdout.write(
-                    self.style.WARNING(
-                        f"TaxCalendar already exists for {first_business.name} {tax_type} {period_start} - {period_end}, skipping"  # noqa
-                    )
-                )
-                continue
-
-            TaxCalendar.objects.create(
-                business=first_business,
-                tax_type=tax_type,
-                period="Trimestral",
-                period_start=period_start,
-                period_end=period_end,
-                deadline=overdue_date,
-                is_presented=False,
-                notes=notes,
-            )
-            created_count += 1
-
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Injected {created_count} overdue tax calendar entries for Cliente 1 (skipped existing)"
-            )
-        )
-
         self.stdout.write(self.style.SUCCESS("seed_system completed successfully"))
 
     def _generate_strong_password(self, length: int = 12) -> str:
@@ -369,7 +322,7 @@ class Command(BaseCommand):
         except Exception as e:
             logger.exception("Failed to download PDF %s from %s: %s", file_name, url, e)
 
-        # Fallback minimal PDF if download fails
+        # Fallback minimal PDF si falla la descarga (concatenación implícita limpia)
         stream = f"BT\n/F1 12 Tf\n50 700 Td\n({file_name}) Tj\nET"
         return (
             b"%PDF-1.4\n"

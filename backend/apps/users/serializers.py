@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 import string
@@ -14,6 +15,8 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import serializers
 
 from .models import User
+
+logger = logging.getLogger(__name__)
 
 PASSWORD_SYMBOLS = "!@#$%^&*()-_=+"
 
@@ -86,7 +89,6 @@ class UserSerializer(serializers.ModelSerializer):
             "primary_business",
             "role",
             "is_staff",
-            "is_active",
         ]
 
     def get_primary_business(self, obj):
@@ -214,13 +216,21 @@ class UserSerializer(serializers.ModelSerializer):
                     "Si no esperabas este correo, ignóralo o contacta con soporte.\n"
                 )
 
-                send_mail(
-                    subject="Configura tu contraseña en Consultoritas",
-                    message=email_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
+                def _send_welcome_email():
+                    try:
+                        send_mail(
+                            subject="Configura tu contraseña en Consultoritas",
+                            message=email_body,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[user.email],
+                            fail_silently=False,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to send welcome email to %s", user.email
+                        )
+
+                transaction.on_commit(_send_welcome_email)
 
         return user
 

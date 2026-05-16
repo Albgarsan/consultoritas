@@ -9,140 +9,96 @@ import { DashboardView } from "@/components/client/client-view"
 import { ClientAppointmentsView } from "@/components/client/appointments-view"
 import { FacturacionView } from "@/components/client/facturacion-view"
 import { AjustesView } from "@/components/client/settings"
-import { apiFetch, type DocumentoFacturacion, type TaxCalendarEntry } from "@/lib/api"
+import { apiFetch } from "@/lib/api"
+import { useApiData } from "@/lib/use-api"
 import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "sonner"
 
 export default function ClientePage() {
   const router = useRouter()
   const [view, setView] = useState("dashboard")
-  const [user, setUser] = useState<{ first_name?: string; email?: string } | null>(null)
-  const [documents, setDocuments] = useState<DocumentoFacturacion[]>([])
-  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
-  const [appointments, setAppointments] = useState<Array<Record<string, unknown>>>([])
-  const [calendarEntries, setCalendarEntries] = useState<TaxCalendarEntry[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const currentYear = new Date().getFullYear()
 
-  const fetchDocuments = async () => {
-    const docsRes = await apiFetch(`/api/documents/`)
-    const docsData = await docsRes.json().catch(() => [])
-    setDocuments(Array.isArray(docsData) ? docsData : docsData.results || [])
-  }
+  // 1. Captura del perfil de usuario autenticado
+  const { data: user, error: authError, isLoading: isUserLoading } = useApiData<{ id?: string; first_name?: string; email?: string }>(
+    "/api/users/me/"
+  )
 
-  const fetchStats = async () => {
-    try {
-      const statsRes = await apiFetch(`/api/documents/stats/`)
-      const statsData = await statsRes.json().catch(() => null)
-      setStats(statsData)
-    } catch {}
-  }
+  // 2. Repositorio documental impositivo del cliente
+  const { data: documents = [], mutate: mutateDocuments, isLoading: isDocsLoading } = useApiData<any[]>(
+    `/api/documents/?tenant=${user?.id}`,
+    { dedupingInterval: 10000 }
+  )
 
-  const fetchAppointments = async () => {
-    const appointmentsRes = await apiFetch(`/api/business/appointments/`)
-    const appointmentsData = await appointmentsRes.json().catch(() => [])
-    setAppointments(Array.isArray(appointmentsData) ? appointmentsData : appointmentsData.results || [])
-  }
+  // 3. Estadísticas de facturación
+  const { data: stats = null, mutate: mutateStats } = useApiData<Record<string, unknown>>(
+    "/api/documents/stats/",
+    { dedupingInterval: 10000 }
+  )
 
-  const fetchCalendar = async () => {
-    try {
-      const res = await apiFetch(`/api/business/tax-calendar/`)
-      const data = await res.json().catch(() => [])
-      setCalendarEntries(Array.isArray(data) ? data : data.results || [])
-    } catch {
-      setCalendarEntries([])
+  // 4. Gestión de citas agendadas
+  const { data: appointments = [], mutate: mutateAppointments } = useApiData<any[]>(
+    "/api/business/appointments/",
+    { dedupingInterval: 10000 }
+  )
+
+  // 5. Calendario Fiscal Unificado con Polling (Refresco activo en segundo plano cada 15 segundos)
+  const { data: calendarEntries = [], mutate: mutateCalendar, isLoading: isCalendarLoading } = useApiData<any[]>(
+    `/api/documents/tax-calendar/?year=${currentYear}`,
+    {
+      revalidateOnFocus: true,
+      refreshInterval: 15000,
+      dedupingInterval: 5000,
     }
-  }
+  )
 
+  const isLoading = isUserLoading
+
+  // Redirección forzosa al login si el backend deniega las credenciales de sesión
   useEffect(() => {
-    let cancelled = false
-    setIsLoading(true)
-    ;(async () => {
-      try {
-        const [userResult, docsResult, statsResult, appointmentsResult, calendarResult] = await Promise.allSettled([
-          apiFetch(`/api/users/me/`),
-          apiFetch(`/api/documents/`),
-          apiFetch(`/api/documents/stats/`),
-          apiFetch(`/api/business/appointments/`),
-          apiFetch(`/api/business/tax-calendar/`),
-        ])
-
-        const userResponse = userResult.status === "fulfilled" ? userResult.value : null
-        if (userResponse?.status === 401 || userResponse?.status === 403) {
-          if (!cancelled) setIsLoading(false)
-          router.push("/login")
-          return
-        }
-
-        if (userResponse?.ok) {
-          const userData = await userResponse.json().catch(() => null)
-          if (userData && !cancelled) setUser(userData)
-        }
-
-        if (!cancelled) {
-          if (docsResult.status === "fulfilled" && docsResult.value.ok) {
-            const docsData = await docsResult.value.json().catch(() => [])
-            setDocuments(Array.isArray(docsData) ? docsData : docsData.results || [])
-          }
-          if (statsResult.status === "fulfilled" && statsResult.value.ok) {
-            const statsData = await statsResult.value.json().catch(() => null)
-            setStats(statsData)
-          }
-          if (appointmentsResult.status === "fulfilled" && appointmentsResult.value.ok) {
-            const appointmentsData = await appointmentsResult.value.json().catch(() => [])
-            setAppointments(Array.isArray(appointmentsData) ? appointmentsData : appointmentsData.results || [])
-          }
-          if (calendarResult.status === "fulfilled" && calendarResult.value.ok) {
-            const calendarData = await calendarResult.value.json().catch(() => [])
-            setCalendarEntries(Array.isArray(calendarData) ? calendarData : calendarData.results || [])
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching cliente data:", err)
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
+    if (authError) {
+      router.push("/login")
     }
-  }, [router])
+  }, [authError, router])
 
   const handleLogout = async () => {
     try {
       await apiFetch("/api/users/logout/", { method: "POST" })
     } catch {
-      // If logout fails, still send user to landing page.
+      /* ignore */
     }
     document.cookie = "consultoritas_role=; Path=/; Max-Age=0"
     router.push("/")
   }
 
+  // Bus de eventos local: reacciona instantáneamente a acciones del propio cliente en su panel
   useEffect(() => {
     const handleRefresh = () => {
-      fetchDocuments().catch((err) => console.error("Error refreshing documents:", err))
-      fetchStats().catch((err) => console.error("Error refreshing stats:", err))
-      fetchAppointments().catch((err) => console.error("Error refreshing appointments:", err))
-      fetchCalendar().catch((err) => console.error("Error refreshing calendar:", err))
+      void mutateDocuments()
+      void mutateStats()
+      void mutateAppointments()
+      void mutateCalendar()
     }
 
     const handleDocumentsUpdated = () => {
-      fetchDocuments().catch((err) => console.error("Error refreshing documents:", err))
-      fetchStats().catch((err) => console.error("Error refreshing stats:", err))
+      void mutateDocuments()
+      void mutateStats()
     }
 
     const handleAppointmentsUpdated = () => {
-      fetchAppointments().catch((err) => console.error("Error refreshing appointments:", err))
+      void mutateAppointments()
     }
 
     window.addEventListener("consultoritas:refresh", handleRefresh)
     window.addEventListener("consultoritas:documents-updated", handleDocumentsUpdated)
     window.addEventListener("consultoritas:appointments-updated", handleAppointmentsUpdated)
+
     return () => {
       window.removeEventListener("consultoritas:refresh", handleRefresh)
       window.removeEventListener("consultoritas:documents-updated", handleDocumentsUpdated)
       window.removeEventListener("consultoritas:appointments-updated", handleAppointmentsUpdated)
     }
-  }, [])
+  }, [mutateDocuments, mutateStats, mutateAppointments, mutateCalendar])
 
   if (isLoading) {
     return (
@@ -180,7 +136,16 @@ export default function ClientePage() {
           )}
         </header>
         <main className="p-6">
-          {view === "dashboard" && <DashboardView onNavigate={setView} user={user} documents={documents} stats={stats} calendarEntries={calendarEntries} isLoading={false} />}
+          {view === "dashboard" && (
+            <DashboardView
+              onNavigate={setView}
+              user={user}
+              documents={documents}
+              stats={stats}
+              calendarEntries={calendarEntries}
+              isLoading={false}
+            />
+          )}
           {view === "citas" && <ClientAppointmentsView appointments={appointments} user={user} />}
           {view === "documentos" && <FacturacionView documents={documents} />}
           {view === "facturacion" && <FacturacionView documents={documents} />}

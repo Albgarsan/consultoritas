@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import type { ChangeEvent, FormEvent } from "react"
 import { Plus, AlertCircle, CheckCircle2, MoreHorizontal, Bot, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,16 +10,16 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
-
+import { useApiData } from "@/lib/use-api"
+import { mutate as globalMutate } from "swr"
 interface GestionClientesProps {
   onNavigateToMonitor: (clientId: string) => void
-  clients?: Client[]
 }
 
 type Client = {
@@ -51,13 +52,11 @@ type EditableClient = {
 
 export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [fiscalFilter, setFiscalFilter] = useState("all")
   const [roleFilter, setRoleFilter] = useState("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [clients, setClients] = useState<Client[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const hasLoadedOnceRef = useRef(false)
   const [newClient, setNewClient] = useState({
     first_name: "",
     last_name: "",
@@ -72,69 +71,53 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
   const [isUpdating, setIsUpdating] = useState(false)
   const [editHasEmployees, setEditHasEmployees] = useState(false)
   const [editHasOfficeRent, setEditHasOfficeRent] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null)
+  const [confirmEmailInput, setConfirmEmailInput] = useState("")
+  const clientsUrl = `/api/users/clients/?search=${encodeURIComponent(debouncedSearch)}&page=1&page_size=20`
+  const { data: clients = [], mutate: mutateClients, isLoading: isClientsLoading } = useApiData<Client[]>(clientsUrl, {
+    dedupingInterval: 30_000,
+  })
+  const { data: businesses = [], mutate: mutateBusinesses } = useApiData<Array<{ id?: string; tax_status?: string }>>("/api/business/companies/", {
+    dedupingInterval: 30_000,
+  })
 
-  const fetchClients = async () => {
-    const isFirstLoad = !hasLoadedOnceRef.current
-    if (isFirstLoad) {
-      setIsLoading(true)
-    }
-
-    try {
-      const [clientsRes, businessesRes] = await Promise.all([
-        apiFetch(`/api/users/clients/`),
-        apiFetch(`/api/business/companies/`),
-      ])
-
-      if (!clientsRes.ok) {
-        setClients([])
-        return
-      }
-
-      const clientsData = await clientsRes.json().catch(() => [])
-      const businessesData = businessesRes.ok ? await businessesRes.json().catch(() => []) : []
-      const parsedClients = Array.isArray(clientsData)
-        ? clientsData
-        : (clientsData && (clientsData.results || clientsData.data) ? (clientsData.results || clientsData.data) : [])
-      const parsedBusinesses = Array.isArray(businessesData)
-        ? businessesData
-        : (businessesData && (businessesData.results || businessesData.data) ? (businessesData.results || businessesData.data) : [])
-
-      const businessById = new Map<string, string>()
-      for (const business of parsedBusinesses) {
-        if (business?.id) {
-          businessById.set(String(business.id), business.tax_status || "AL DÍA")
-        }
-      }
-
-      setClients(
-        parsedClients.map((client: Client) => {
-          const primaryBusinessId = client.primary_business?.id ? String(client.primary_business.id) : ""
-          return {
-            ...client,
-            tax_status: businessById.get(primaryBusinessId) || client.tax_status,
-          }
-        }),
-      )
-    } catch {
-      setClients([])
-    } finally {
-      if (isFirstLoad) {
-        hasLoadedOnceRef.current = true
-        setIsLoading(false)
-      }
-    }
-  }
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   useEffect(() => {
-    fetchClients()
-    const refresh = () => { fetchClients().catch(() => {}) }
+    const refresh = () => {
+      void mutateClients()
+      void mutateBusinesses()
+    }
+
     window.addEventListener("consultoritas:refresh", refresh)
     return () => {
       window.removeEventListener("consultoritas:refresh", refresh)
     }
-  }, [])
+  }, [mutateBusinesses, mutateClients])
 
-  const handleAddClient = async (e: React.FormEvent) => {
+  const clientsWithTaxStatus = useMemo<Client[]>(() => {
+    const businessById = new Map<string, string>()
+    for (const business of businesses) {
+      if (business?.id) {
+        businessById.set(String(business.id), business.tax_status || "AL DÍA")
+      }
+    }
+
+    return clients.map((client: Client) => {
+      const primaryBusinessId = client.primary_business?.id ? String(client.primary_business.id) : ""
+      return {
+        ...client,
+        tax_status: businessById.get(primaryBusinessId) || client.tax_status,
+      }
+    })
+  }, [businesses, clients])
+
+  const handleAddClient = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const loadingId = toast.loading("Creando cliente...")
     try {
@@ -144,34 +127,19 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
         email: newClient.email.trim().toLowerCase(),
         password: newClient.password.trim(),
         role: newClient.role || "Autónomo",
+        has_employees: newClient.has_employees,
+        has_office_rent: newClient.has_office_rent,
       }
 
-      const res = await apiFetch("/api/users/", {
+      const res = await apiFetch("/api/users/create-with-business/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
+
       if (res.ok) {
-        const createdUser = await res.json().catch(() => null)
-
-        if (createdUser?.id && ["Autónomo", "Sociedad"].includes(payload.role)) {
-          const businessRes = await apiFetch("/api/business/client-business/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_id: createdUser.id,
-              has_employees: newClient.has_employees,
-              has_office_rent: newClient.has_office_rent,
-            }),
-          })
-
-          if (!businessRes.ok) {
-            const businessError = await businessRes.json().catch(() => ({}))
-            throw new Error(businessError.detail || "Error al crear la empresa del cliente")
-          }
-        }
-
         toast.success("Cliente añadido correctamente")
+        await mutateClients()
         setIsAddModalOpen(false)
         setNewClient({
           first_name: "",
@@ -182,12 +150,24 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
           has_employees: false,
           has_office_rent: false,
         })
+
+        const currentYear = new Date().getFullYear()
+
+        await mutateBusinesses()
+
+        await globalMutate(`/api/documents/tax-calendar/?year=${currentYear}`)
+
         window.dispatchEvent(new Event("consultoritas:refresh"))
       } else {
         const errorData = await res.json().catch(() => ({}))
+
+        console.error("Detalle del error 400 del backend:", errorData)
+
         let errorMsg = "Error al añadir cliente"
         if (errorData.email) {
           errorMsg = Array.isArray(errorData.email) ? errorData.email[0] : errorData.email
+        } else if (errorData.password) {
+          errorMsg = Array.isArray(errorData.password) ? errorData.password[0] : errorData.password
         } else if (errorData.detail) {
           errorMsg = errorData.detail
         }
@@ -212,6 +192,11 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
 
       if (res.ok) {
         toast.success(`Cliente ${currentlyActive ? "suspendido" : "reactivado"} correctamente`)
+        const currentYear = new Date().getFullYear()
+        await globalMutate("/api/business/companies/")
+        await globalMutate(`/api/documents/tax-calendar/?year=${currentYear}`)
+        await globalMutate((key) => typeof key === "string" && key.startsWith("/api/users/clients"))
+
         window.dispatchEvent(new Event("consultoritas:refresh"))
       } else {
         const errorData = await res.json().catch(() => ({}))
@@ -222,16 +207,30 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
     }
   }
 
-  const handleDeleteClient = async (clientId: string) => {
-    if (!window.confirm("¿Eliminar este cliente? Esta acción no se puede deshacer.")) return
+const triggerDeleteVerification = (client: Client) => {
+    setClientToDelete(client)
+    setConfirmEmailInput("")
+    setIsDeleteModalOpen(true)
+  }
+
+  const executeDeleteClient = async () => {
+    if (!clientToDelete) return
 
     try {
-      const res = await apiFetch(`/api/users/${clientId}/`, {
+      const res = await apiFetch(`/api/users/${clientToDelete.id}/`, {
         method: "DELETE",
       })
 
       if (res.ok) {
-        toast.success("Cliente eliminado correctamente")
+        toast.success("Cliente y datos asociados eliminados del sistema")
+        setIsDeleteModalOpen(false)
+        setClientToDelete(null)
+
+        const currentYear = new Date().getFullYear()
+        await globalMutate("/api/business/companies/")
+        await globalMutate(`/api/documents/tax-calendar/?year=${currentYear}`)
+        await mutateClients()
+
         window.dispatchEvent(new Event("consultoritas:refresh"))
       } else {
         const errorData = await res.json().catch(() => ({}))
@@ -258,7 +257,7 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
     setIsEditModalOpen(true)
   }
 
-  const handleSaveEditClient = async (e: React.FormEvent) => {
+  const handleSaveEditClient = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editClient || !editClient.id) return
 
@@ -301,6 +300,11 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
 
       toast.success("Cliente actualizado correctamente")
       setIsEditModalOpen(false)
+      await mutateClients()
+      const currentYear = new Date().getFullYear()
+      await globalMutate("/api/business/companies/")
+      await globalMutate(`/api/documents/tax-calendar/?year=${currentYear}`)
+
       window.dispatchEvent(new Event("consultoritas:refresh"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al actualizar cliente")
@@ -310,20 +314,20 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
     }
   }
 
-  const activeClients = clients
-  const byStatus = activeClients.filter((c) =>
+  const activeClients: Client[] = clientsWithTaxStatus
+  const byStatus = activeClients.filter((c: Client) =>
     statusFilter === "all" ? true : statusFilter === "active" ? c.is_active !== false : c.is_active === false,
   )
-  const byRole = byStatus.filter((c) =>
+  const byRole = byStatus.filter((c: Client) =>
     roleFilter === "all" ? true : c.role === roleFilter,
   )
-  const byFiscal = byRole.filter((c) =>
+  const byFiscal = byRole.filter((c: Client) =>
     fiscalFilter === "all" ? true : fiscalFilter === "ok" ? c.tax_status === "AL DÍA" : c.tax_status !== "AL DÍA",
   )
-  const filtered = byFiscal.filter((client) => {
+  const filtered = byFiscal.filter((client: Client) => {
     const fullName = `${client.first_name || ""} ${client.last_name || ""}`.toLowerCase()
     const email = (client.email || "").toLowerCase()
-    return fullName.includes(search.toLowerCase()) || email.includes(search.toLowerCase())
+    return fullName.includes(debouncedSearch.toLowerCase()) || email.includes(debouncedSearch.toLowerCase())
   })
 
   return (
@@ -346,29 +350,29 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
             <form onSubmit={handleAddClient} className="space-y-4">
               <div className="space-y-2">
                 <Label>Nombre</Label>
-                <Input value={newClient.first_name} onChange={(e) => setNewClient({ ...newClient, first_name: e.target.value })} required />
+                <Input value={newClient.first_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, first_name: e.target.value })} required />
               </div>
               <div className="space-y-2">
                 <Label>Apellidos</Label>
-                <Input value={newClient.last_name} onChange={(e) => setNewClient({ ...newClient, last_name: e.target.value })} required />
+                <Input value={newClient.last_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, last_name: e.target.value })} required />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
-                <Input type="email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} required />
+                <Input type="email" value={newClient.email} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, email: e.target.value })} required />
               </div>
               <div className="space-y-2">
                 <Label>Contraseña</Label>
                 <Input
                   type="password"
                   value={newClient.password}
-                  onChange={(e) => setNewClient({ ...newClient, password: e.target.value })}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, password: e.target.value })}
                   placeholder="Dejar en blanco para generar una temporal"
                 />
                 <p className="text-xs text-muted-foreground">Si la dejas vacía, se generará una contraseña segura y se enviará por correo.</p>
               </div>
               <div className="space-y-2">
                 <Label>Tipo de Cliente</Label>
-                <select value={newClient.role} onChange={(e) => setNewClient({ ...newClient, role: e.target.value })} className="input bg-white p-2 rounded w-full">
+                <select value={newClient.role} onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewClient({ ...newClient, role: e.target.value })} className="input bg-white p-2 rounded w-full">
                   <option value="Autónomo">Autónomo</option>
                   <option value="Sociedad">Sociedad</option>
                 </select>
@@ -377,11 +381,11 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
                 <Label className="text-base font-semibold">Obligaciones Fiscales</Label>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <label className="text-sm cursor-pointer">¿Tiene empleados?</label>
-                  <Switch checked={newClient.has_employees} onCheckedChange={(v) => setNewClient({ ...newClient, has_employees: v })} />
+                  <Switch checked={newClient.has_employees} onCheckedChange={(v: boolean) => setNewClient({ ...newClient, has_employees: v })} />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <label className="text-sm cursor-pointer">¿Alquila oficina?</label>
-                  <Switch checked={newClient.has_office_rent} onCheckedChange={(v) => setNewClient({ ...newClient, has_office_rent: v })} />
+                  <Switch checked={newClient.has_office_rent} onCheckedChange={(v: boolean) => setNewClient({ ...newClient, has_office_rent: v })} />
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
@@ -395,7 +399,7 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
         </Dialog>
       </div>
 
-      {isLoading ? (
+      {isClientsLoading ? (
         <Card className="border-border/50">
           <CardHeader className="space-y-3 pb-4">
             <Skeleton className="h-5 w-44" />
@@ -510,7 +514,7 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
                       <DropdownMenuItem onClick={() => handleToggleActive(client.id, client.is_active !== false)}>
                         {client.is_active !== false ? "Suspender" : "Reactivar"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteClient(client.id)} className="text-red-600">
+                      <DropdownMenuItem onClick={() => triggerDeleteVerification(client)} className="text-red-600 font-semibold">
                         Eliminar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -533,21 +537,21 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
             <form onSubmit={handleSaveEditClient} className="space-y-4">
               <div className="space-y-2">
                 <Label>Nombre</Label>
-                <Input value={editClient.first_name} onChange={(e) => setEditClient({ ...editClient, first_name: e.target.value })} />
+                <Input value={editClient.first_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setEditClient({ ...editClient, first_name: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Apellidos</Label>
-                <Input value={editClient.last_name} onChange={(e) => setEditClient({ ...editClient, last_name: e.target.value })} />
+                <Input value={editClient.last_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setEditClient({ ...editClient, last_name: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
-                <Input type="email" value={editClient.email} onChange={(e) => setEditClient({ ...editClient, email: e.target.value })} />
+                <Input type="email" value={editClient.email} onChange={(e: ChangeEvent<HTMLInputElement>) => setEditClient({ ...editClient, email: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Rol</Label>
                 <select
                   value={editClient.role}
-                  onChange={(e) => setEditClient({ ...editClient, role: e.target.value })}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setEditClient({ ...editClient, role: e.target.value })}
                   className="input bg-white p-2 rounded w-full"
                 >
                   <option value="Autónomo">Autónomo</option>
@@ -558,11 +562,11 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
                 <Label className="text-base font-semibold">Obligaciones Fiscales</Label>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <label className="text-sm cursor-pointer">¿Tiene empleados?</label>
-                  <Switch checked={editHasEmployees} onCheckedChange={setEditHasEmployees} />
+                  <Switch checked={editHasEmployees} onCheckedChange={(v: boolean) => setEditHasEmployees(v)} />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <label className="text-sm cursor-pointer">¿Alquila oficina?</label>
-                  <Switch checked={editHasOfficeRent} onCheckedChange={setEditHasOfficeRent} />
+                  <Switch checked={editHasOfficeRent} onCheckedChange={(v: boolean) => setEditHasOfficeRent(v)} />
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
@@ -575,6 +579,43 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
               </div>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="border-2 border-rose-200">
+          <DialogHeader>
+            <DialogTitle className="text-rose-600 flex items-center gap-2">
+              <AlertCircle className="size-5" /> Acción Altamente Destructiva
+            </DialogTitle>
+            <DialogDescription className="text-foreground pt-2">
+              Esta acción eliminará permanentemente al cliente <strong>{clientToDelete?.first_name} {clientToDelete?.last_name}</strong>, incluyendo su empresa, facturas y todo su historial de la Matriz de Cumplimiento. Esta operación cumple con la normativa de supresión de datos pero <strong>es irreversible</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-3">
+            <Label className="text-sm font-medium">
+              Para confirmar, escribe el correo electrónico del cliente (<span className="select-all font-mono text-xs bg-muted p-0.5 rounded">{clientToDelete?.email}</span>):
+            </Label>
+            <Input
+              value={confirmEmailInput}
+              onChange={(e) => setConfirmEmailInput(e.target.value)}
+              placeholder="ejemplo@correo.com"
+              className="border-rose-300 focus-visible:ring-rose-500"
+            />
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={executeDeleteClient}
+              disabled={confirmEmailInput.trim().toLowerCase() !== clientToDelete?.email?.toLowerCase()}
+            >
+              Entiendo el riesgo, eliminar definitivo
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

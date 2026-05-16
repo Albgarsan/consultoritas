@@ -61,7 +61,7 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
     return (
       <Card className="border-border/50 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Calendario Contable</CardTitle>
+          <CardTitle className="text-lg font-semibold">Calendario Fiscal</CardTitle>
           <CardDescription>Activa el calendario real para mostrar obligaciones fiscales sincronizadas.</CardDescription>
         </CardHeader>
       </Card>
@@ -72,7 +72,7 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
     return (
       <Card className="border-border/50 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Calendario Contable</CardTitle>
+          <CardTitle className="text-lg font-semibold">Calendario Fiscal</CardTitle>
           <CardDescription>No hay obligaciones generadas todavía.</CardDescription>
         </CardHeader>
       </Card>
@@ -109,7 +109,7 @@ export function AccountingCalendar({ calendarEntries = [], useRealCalendar = fal
   return (
     <Card className="border-border/50 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Calendario Contable</CardTitle>
+        <CardTitle className="text-lg font-semibold">Calendario Fiscal</CardTitle>
         <CardDescription>Obligaciones generadas automáticamente desde el calendario fiscal.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

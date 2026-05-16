@@ -35,12 +35,6 @@ class Migration(migrations.Migration):
                 to=settings.AUTH_USER_MODEL,
             ),
         ),
-        migrations.AddIndex(
-            model_name="business",
-            index=models.Index(
-                fields=["tax_status"], name="business_tax_sta_06f19d_idx"
-            ),
-        ),
         migrations.AddField(
             model_name="appointment",
             name="business",

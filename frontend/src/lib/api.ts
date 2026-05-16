@@ -82,14 +82,19 @@ function mergeHeaders(existing: HeadersInit | undefined, extra: Record<string, s
 
 const criticalNoStorePaths = [
   '/api/users/me/',
+  '/api/users/stats/',
+  '/api/users/clients/',
   '/api/users/login/',
   '/api/users/logout/',
-  '/api/business/my_business/',
   '/api/business/companies/',
+  '/api/business/appointments/',
+  '/api/business/my_business/',
   '/api/business/dashboard_summary/',
+  '/api/business/tax-calendar/',
+  '/api/business/tax_calendar/',
+  '/api/documents/',
   '/api/documents/tax-calendar/',
   '/api/documents/stats/',
-  '/api/business/tax-calendar/',
 ]
 
 export async function apiFetch(input: RequestInfo, init: RequestInit = {}) {

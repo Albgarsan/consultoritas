@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertCircle, CheckCircle2, Filter } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { AlertCircle, CheckCircle2, Filter, Loader2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { useApiData } from "@/lib/use-api"
+import { mutate as globalMutate } from "swr"
 
 type TaxCalendarEntry = {
   id: string
@@ -34,43 +36,31 @@ type GroupedBusiness = {
 }
 
 export function ComplianceDashboard() {
-  const [calendarEntries, setCalendarEntries] = useState<TaxCalendarEntry[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [modelFilter, setModelFilter] = useState("all")
   const [quarterFilter, setQuarterFilter] = useState("all")
-  const hasLoadedOnceRef = useRef(false)
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
 
-  const loadData = async () => {
-    const isFirstLoad = !hasLoadedOnceRef.current
-    if (isFirstLoad) {
-      setIsLoading(true)
-    }
+  const currentYear = new Date().getFullYear()
 
-    try {
-      const res = await apiFetch("/api/documents/tax-calendar/")
-      if (!res.ok) throw new Error("Error loading tax calendar")
-      const data = await res.json()
-      setCalendarEntries(Array.isArray(data) ? data : [])
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error cargando calendario fiscal")
-    } finally {
-      if (!hasLoadedOnceRef.current) {
-        hasLoadedOnceRef.current = true
-      }
-      setIsLoading(false)
-    }
-  }
+  // Consumo reactivo del calendario fiscal mediante SWR
+  const {
+    data: calendarEntries = [],
+    mutate: mutateTaxCalendar,
+    isLoading
+  } = useApiData<TaxCalendarEntry[]>(`/api/documents/tax-calendar/?year=${currentYear}`, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30_000,
+  })
 
+  // Sincronización global cruzada: si otra pantalla muta datos, este dashboard invalida su caché
   useEffect(() => {
-    loadData()
-  }, [])
-
-  useEffect(() => {
-    const refresh = () => { loadData().catch(() => {}) }
+    const refresh = () => {
+      void mutateTaxCalendar()
+    }
     window.addEventListener("consultoritas:refresh", refresh)
     return () => window.removeEventListener("consultoritas:refresh", refresh)
-  }, [])
+  }, [mutateTaxCalendar])
 
   const toModelCode = (entry: TaxCalendarEntry) => {
     const taxType = entry.tax_type.toLowerCase()
@@ -115,11 +105,11 @@ export function ComplianceDashboard() {
     const filtered = [...calendarEntries]
       .sort((left, right) => new Date(left.deadline).getTime() - new Date(right.deadline).getTime())
       .filter((entry) => {
-      const clientMatch = entry.business?.name?.toLowerCase().includes(search.toLowerCase())
-      if (!clientMatch) return false
-      if (modelFilter !== "all" && toModelCode(entry) !== modelFilter) return false
-      if (quarterFilter !== "all" && toQuarter(entry) !== quarterFilter) return false
-      return true
+        const clientMatch = entry.business?.name?.toLowerCase().includes(search.toLowerCase())
+        if (!clientMatch) return false
+        if (modelFilter !== "all" && toModelCode(entry) !== modelFilter) return false
+        if (quarterFilter !== "all" && toQuarter(entry) !== quarterFilter) return false
+        return true
       })
 
     const map = new Map<string, GroupedBusiness>()
@@ -140,7 +130,6 @@ export function ComplianceDashboard() {
       }
     }
 
-    // Sort entries within each group by nearest deadline first
     for (const g of map.values()) {
       g.entries.sort((x, y) => new Date(x.deadline).getTime() - new Date(y.deadline).getTime())
     }
@@ -154,6 +143,7 @@ export function ComplianceDashboard() {
   const overdueBusinesses = useMemo(() => grouped.filter((g) => g.hasOverdue).length, [grouped])
 
   const handleMarkPresented = async (entryId: string) => {
+    setActionLoadingId(entryId)
     try {
       const res = await apiFetch(`/api/documents/tax-calendar/${entryId}/`, {
         method: "PATCH",
@@ -165,16 +155,18 @@ export function ComplianceDashboard() {
       })
 
       if (!res.ok) throw new Error("Error actualizando entrada")
-      const updated = await res.json()
-      setCalendarEntries((prev) => prev.map((entry) => (entry.id === entryId ? updated : entry)))
-      try {
-        window.dispatchEvent(new Event("consultoritas:refresh"))
-      } catch {
-        /* ignore */
-      }
-      toast.success("Entrada marcada como presentada")
+
+      await mutateTaxCalendar()
+
+      await globalMutate("/api/business/companies/")
+
+      window.dispatchEvent(new Event("consultoritas:refresh"))
+
+      toast.success("Entrada marcada como presentada correctamente")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al actualizar")
+    } finally {
+      setActionLoadingId(null)
     }
   }
 
@@ -263,6 +255,7 @@ export function ComplianceDashboard() {
                       {group.entries.map((entry) => {
                         const overdue = !entry.is_presented && isOverdue(entry.deadline)
                         const left = daysUntil(entry.deadline)
+                        const isBusy = actionLoadingId === entry.id
                         return (
                           <div key={entry.id} className="p-3 rounded-md border bg-background flex items-center justify-between gap-3">
                             <div>
@@ -280,8 +273,8 @@ export function ComplianceDashboard() {
                               )}
                             </div>
                             {!entry.is_presented && (
-                              <Button size="sm" variant="outline" type="button" onClick={() => handleMarkPresented(entry.id)}>
-                                Marcar presentada
+                              <Button size="sm" variant="outline" type="button" onClick={() => handleMarkPresented(entry.id)} disabled={isBusy}>
+                                {isBusy ? <Loader2 className="size-3 animate-spin" /> : "Marcar presentada"}
                               </Button>
                             )}
                           </div>

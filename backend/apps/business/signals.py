@@ -1,7 +1,7 @@
 from datetime import date
 
 from apps.documents.models import TaxCalendar
-from django.db import transaction
+from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
@@ -45,7 +45,12 @@ def _delete_unpresented_tax_items(business, tax_type):
         business=business,
         tax_type=tax_type,
         is_presented=False,
-    ).filter(Q(deadline__gt=today) | Q(period_end__gte=today)).delete()
+    ).filter(
+        Q(deadline__gt=today) | Q(period_end__gte=today),
+        models.Q(notes="")
+        | models.Q(notes__isnull=True)
+        | models.Q(notes__startswith="Modelo"),
+    ).delete()
 
 
 # --- RECEPTORES DE SEÑALES ---

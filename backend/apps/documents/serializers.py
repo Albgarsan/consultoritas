@@ -76,7 +76,7 @@ class InvoiceDataSerializer(serializers.ModelSerializer):
 
 
 class DocumentSerializer(serializers.ModelSerializer):
-    file = serializers.FileField(write_only=True, required=False)
+    file = serializers.FileField(write_only=True, required=True)
     invoice_data = InvoiceDataSerializer(read_only=True)
     uploaded_by = UserSerializer(read_only=True)
     doc_type = serializers.ChoiceField(

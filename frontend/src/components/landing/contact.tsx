@@ -36,7 +36,7 @@ export function ContactSection() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900">Edificio Portasevilla</p>
-                    <p className="text-sm text-slate-500">Calle Dr. González Caraballo, 1, 41020 Sevilla</p>
+                    <p className="text-sm text-slate-500">Calle Dr. González Caraballo, 1, puerta 119, 41020 Sevilla</p>
                   </div>
                 </div>
                 <div className="flex gap-4">

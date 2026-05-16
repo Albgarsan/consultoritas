@@ -48,6 +48,7 @@ import { toast } from "sonner"
 import { apiFetch, parseBackendError, type DocumentoFacturacion, type InvoiceDataAEAT } from "@/lib/api"
 import { cn, handleNumericKeyDown } from "@/lib/utils"
 import { DocumentFilter } from "@/components/shared/document-filter"
+import { useApiData } from "@/lib/use-api"
 
 type DocumentoValidacion = DocumentoFacturacion & {
   amount?: number
@@ -223,6 +224,24 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
   const [filters, setFilters] = useState<FilterState>({})
   const [activeTab, setActiveTab] = useState("recibidas")
 
+  const { data: apiDocs = [], mutate: mutateDocs } = useApiData<DocumentoValidacion[]>("/api/documents/", {
+    dedupingInterval: 5000
+  })
+
+  const initialDocs = documents.length > 0 ? documents : apiDocs
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      void mutateDocs()
+    }
+    window.addEventListener("consultoritas:refresh", handleRefresh)
+    window.addEventListener("consultoritas:documents-updated", handleRefresh)
+    return () => {
+      window.removeEventListener("consultoritas:refresh", handleRefresh)
+      window.removeEventListener("consultoritas:documents-updated", handleRefresh)
+    }
+  }, [mutateDocs])
+
   const [selectedRow, setSelectedRow] = useState<ValidationRow | null>(null)
   const [isValidationOpen, setIsValidationOpen] = useState(false)
   const [isExportOpen, setIsExportOpen] = useState(false)
@@ -249,7 +268,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
 
   const [isSaving, setIsSaving] = useState(false)
   const recibidas = useMemo(() => {
-    return documents
+    return initialDocs
       .filter((doc) => {
         const type = (doc.doc_type || "").toLowerCase()
         return type === "factura" || type === "gasto"
@@ -265,10 +284,10 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
         doc,
         invoiceData: doc.invoice_data || {},
       }))
-  }, [documents])
+  }, [initialDocs])
 
   const emitidas = useMemo(() => {
-    return documents
+    return initialDocs
       .filter((doc) => (doc.doc_type || "").toLowerCase() === "ingreso")
       .map((doc) => ({
         id: String(doc.id),
@@ -281,12 +300,11 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
         doc,
         invoiceData: doc.invoice_data || {},
       }))
-  }, [documents])
+  }, [initialDocs])
 
   const clientOptions = useMemo(() => {
     const names = new Set<string>()
     ;[...recibidas, ...emitidas].forEach((row) => {
-      // Filter out default/empty names to avoid showing advisors
       const clientName = row.cliente
       const isValidClient = clientName && clientName.trim() !== "" && clientName !== "Cliente"
       if (isValidClient) {

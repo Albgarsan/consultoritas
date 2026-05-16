@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Users, FileSearch, CalendarClock } from "lucide-react"
 import { NovedadesFiscales } from "@/components/shared/news-feed"
-import { apiFetch, type TaxCalendarEntry } from "@/lib/api"
+import { type TaxCalendarEntry } from "@/lib/api"
+import { useApiData } from "@/lib/use-api"
 
 type BusinessRow = {
   id: string
@@ -20,68 +21,44 @@ interface AdvisorViewProps {
 }
 
 export function AdvisorView({ onNavigate }: AdvisorViewProps) {
-  const [businesses, setBusinesses] = useState<BusinessRow[]>([])
-  const [allCalendar, setAllCalendar] = useState<TaxCalendarEntry[]>([])
-  const [upcoming, setUpcoming] = useState<TaxCalendarEntry[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const hasLoadedOnceRef = useRef(false)
-  const loadData = async () => {
-    const isFirstLoad = !hasLoadedOnceRef.current
-    if (isFirstLoad) {
-      setIsLoading(true)
-    }
-
-    try {
-      const [businessRes, calendarRes] = await Promise.all([
-        apiFetch(`/api/business/companies/`),
-        apiFetch(`/api/documents/tax-calendar/`),
-      ])
-
-      if (businessRes.ok) {
-        const data = await businessRes.json().catch(() => [])
-        const parsed = Array.isArray(data) ? data : (data && (data.results || data.data) ? (data.results || data.data) : [])
-        setBusinesses(parsed)
-      } else {
-        setBusinesses([])
-      }
-
-      if (calendarRes.ok) {
-        const data = await calendarRes.json().catch(() => [])
-        const rows = Array.isArray(data) ? data : (data && (data.results || data.data) ? (data.results || data.data) : [])
-        setAllCalendar(rows)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        const sorted = rows
-          .filter((row: TaxCalendarEntry) => new Date(row.deadline) >= today)
-          .sort((a: TaxCalendarEntry, b: TaxCalendarEntry) => +new Date(a.deadline) - +new Date(b.deadline))
-          .slice(0, 5)
-
-        setUpcoming(sorted)
-      } else {
-        setAllCalendar([])
-        setUpcoming([])
-      }
-    } catch {
-      setBusinesses([])
-      setAllCalendar([])
-      setUpcoming([])
-    } finally {
-      if (!hasLoadedOnceRef.current) {
-        hasLoadedOnceRef.current = true
-      }
-      setIsLoading(false)
-    }
-  }
+  const currentYear = new Date().getFullYear()
+  const { data: businesses = [], mutate: mutateBusinesses, isLoading: isBusinessesLoading } = useApiData<BusinessRow[]>(
+    "/api/business/companies/",
+    { dedupingInterval: 60_000 },
+  )
+  const { data: allCalendar = [], mutate: mutateCalendar, isLoading: isCalendarLoading } = useApiData<TaxCalendarEntry[]>(
+    `/api/documents/tax-calendar/?year=${currentYear}`,
+    { dedupingInterval: 300_000, revalidateOnFocus: false },
+  )
+  const isLoading = isBusinessesLoading || isCalendarLoading
 
   useEffect(() => {
-    const refresh = () => { loadData().catch(() => {}) }
+    const refresh = () => {
+      void mutateBusinesses()
+      void mutateCalendar()
+    }
+
     window.addEventListener("consultoritas:refresh", refresh)
-    loadData().catch(() => {})
+    window.addEventListener("consultoritas:documents-updated", refresh)
+    window.addEventListener("consultoritas:clients-updated", refresh)
+    window.addEventListener("consultoritas:appointments-updated", refresh)
     return () => {
       window.removeEventListener("consultoritas:refresh", refresh)
+      window.removeEventListener("consultoritas:documents-updated", refresh)
+      window.removeEventListener("consultoritas:clients-updated", refresh)
+      window.removeEventListener("consultoritas:appointments-updated", refresh)
     }
-  }, [])
+  }, [mutateBusinesses, mutateCalendar])
+
+  const upcoming = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return [...allCalendar]
+      .filter((row: TaxCalendarEntry) => new Date(row.deadline) >= today)
+      .sort((a: TaxCalendarEntry, b: TaxCalendarEntry) => +new Date(a.deadline) - +new Date(b.deadline))
+      .slice(0, 5)
+  }, [allCalendar])
 
   const overdueCount = useMemo(() => {
     const today = new Date()

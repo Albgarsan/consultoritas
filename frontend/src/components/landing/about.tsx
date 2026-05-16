@@ -10,7 +10,10 @@ export function AboutSection() {
 
   useEffect(() => {
     apiFetch('/api/users/stats/')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Stats fetch failed: ${res.status}`)
+        return res.json()
+      })
       .then((data) => {
         setStats([
           { label: 'Asesores registrados', value: String(data.advisors_count || 0) },
@@ -18,7 +21,9 @@ export function AboutSection() {
           { label: 'Empresas activas', value: String(data.businesses_count || 0) },
         ])
       })
-      .catch(() => setStats([]))
+      .catch(() => {
+        // Mantener los valores por defecto del estado inicial, no hacer nada
+      })
   }, [])
 
   return (
