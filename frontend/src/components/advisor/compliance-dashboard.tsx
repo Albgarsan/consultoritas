@@ -153,12 +153,14 @@ export function ComplianceDashboard() {
   const handleMarkPresented = async (entryId: string) => {
     setActionLoadingId(entryId)
     try {
+      const now = new Date()
+      const presentedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
       const res = await apiFetch(`/api/documents/tax-calendar/${entryId}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           is_presented: true,
-          presented_date: new Date().toISOString().split("T")[0],
+          presented_date: presentedDate,
         }),
       })
 

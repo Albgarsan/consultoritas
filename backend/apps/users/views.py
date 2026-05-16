@@ -311,7 +311,8 @@ class UserViewSet(viewsets.ModelViewSet):
             # Por ahora, incluimos la contraseña generada en la respuesta (mala práctica en producción)
             response_data = UserSerializer(user).data
             if generated_password:
-                response_data["generated_password"] = password
+                if settings.DEBUG:
+                    response_data["generated_password"] = password
                 response_data["password_generated"] = True
                 # TODO: Disparar signal para envío de correo de bienvenida con la contraseña
 

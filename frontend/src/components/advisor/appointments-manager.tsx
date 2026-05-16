@@ -147,21 +147,11 @@ export function AppointmentsManager({
   }, [mutateAppointments])
 
   useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const res = await apiFetch('/api/users/me/')
-        if (!res.ok) return
-        const data = await res.json()
-        if (!mounted) return
-        setWorkStart(data.work_start || null)
-        setWorkEnd(data.work_end || null)
-        setWorkSchedule((data.work_schedule && typeof data.work_schedule === "object") ? data.work_schedule : {})
-      } catch {
-      }
-    })()
-    return () => { mounted = false }
-  }, [])
+    if (!fetchedUser) return
+    setWorkStart(fetchedUser.work_start || null)
+    setWorkEnd(fetchedUser.work_end || null)
+    setWorkSchedule((fetchedUser.work_schedule && typeof fetchedUser.work_schedule === "object") ? fetchedUser.work_schedule : {})
+  }, [fetchedUser])
 
   const parsedAppointments: Appointment[] = activeAppointments
     .map((raw) => {
@@ -238,10 +228,7 @@ export function AppointmentsManager({
     try {
       const [h, m] = rescheduleTime.split(":").map((x) => parseInt(x, 10))
       const scheduled = new Date(rescheduleDate)
-      scheduled.setHours(h)
-      scheduled.setMinutes(m)
-      scheduled.setSeconds(0)
-      scheduled.setMilliseconds(0)
+      scheduled.setHours(h, m, 0, 0)
 
       if (scheduled.getTime() <= Date.now()) {
         toast.error("No puedes reprogramar una cita a una fecha u hora pasada")

@@ -12,7 +12,6 @@ import { AjustesView } from "@/components/client/settings"
 import { apiFetch } from "@/lib/api"
 import { useApiData } from "@/lib/use-api"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "sonner"
 
 export default function ClientePage() {
   const router = useRouter()

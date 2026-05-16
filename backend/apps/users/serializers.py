@@ -127,10 +127,11 @@ class UserSerializer(serializers.ModelSerializer):
 
         if password:
             # Create a temporary user instance with fields for validation context
+            base = self.instance or User()
             temp_user = User(
-                email=attrs.get("email", ""),
-                first_name=attrs.get("first_name", ""),
-                last_name=attrs.get("last_name", ""),
+                email=attrs.get("email", getattr(base, "email", "")),
+                first_name=attrs.get("first_name", getattr(base, "first_name", "")),
+                last_name=attrs.get("last_name", getattr(base, "last_name", "")),
             )
             try:
                 validate_password(password, user=temp_user)

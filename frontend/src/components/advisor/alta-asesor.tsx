@@ -200,7 +200,7 @@ export function AltaAsesor({ onSuccess }: AltaAsesorProps) {
                 <Checkbox
                   id="autoGen"
                   checked={autoGeneratePassword}
-                  onCheckedChange={(checked) => handlePasswordToggle(checked as boolean)}
+                  onCheckedChange={(checked) => handlePasswordToggle(checked === true)}
                   disabled={isSubmitting}
                 />
                 <Label htmlFor="autoGen" className="text-sm cursor-pointer font-normal">
@@ -214,7 +214,7 @@ export function AltaAsesor({ onSuccess }: AltaAsesorProps) {
               <Checkbox
                 id="isPrincipal"
                 checked={isPrincipal}
-                onCheckedChange={(checked) => setIsPrincipal(checked as boolean)}
+                onCheckedChange={(checked) => setIsPrincipal(checked === true)}
                 disabled={isSubmitting}
               />
               <Label htmlFor="isPrincipal" className="text-sm cursor-pointer font-normal">
