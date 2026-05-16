@@ -3,11 +3,12 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ConsultoritasLogo } from "@/components/layout/logo"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
@@ -18,6 +19,9 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isRecoveryOpen, setIsRecoveryOpen] = useState(false)
+  const [recoveryEmail, setRecoveryEmail] = useState("")
+  const [isRecovering, setIsRecovering] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -120,9 +124,96 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <button type="button" className="text-primary hover:underline font-medium">
-                  ¿Olvidaste tu contraseña?
-                </button>
+                <Dialog open={isRecoveryOpen} onOpenChange={setIsRecoveryOpen}>
+                  <DialogTrigger asChild>
+                    <button type="button" className="text-primary hover:underline font-medium">
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Recuperar Contraseña</DialogTitle>
+                      <DialogDescription>
+                        Introduce tu correo electrónico registrado y te enviaremos una nueva contraseña temporal segura para acceder.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsRecovering(true)
+
+                        try {
+                          const res = await apiFetch("/api/users/recover_password/", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ email: recoveryEmail.trim().toLowerCase() }),
+                          })
+
+                          if (!res.ok) {
+                            const errorData = await res.json().catch(() => ({}))
+                            throw new Error(
+                              errorData.detail || "Error al procesar la solicitud."
+                            )
+                          }
+
+                          const data = await res.json()
+                          setRecoveryEmail("")
+                          setIsRecoveryOpen(false)
+                          toast.success(
+                            "Se ha enviado una contraseña temporal a tu correo."
+                          )
+                        } catch (error) {
+                          toast.error(
+                            error instanceof Error
+                              ? error.message
+                              : "Error al recuperar la contraseña."
+                          )
+                        } finally {
+                          setIsRecovering(false)
+                        }
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-2">
+                        <Label htmlFor="recovery-email">Correo Electrónico</Label>
+                        <Input
+                          id="recovery-email"
+                          type="email"
+                          placeholder="ejemplo@gmail.com"
+                          value={recoveryEmail}
+                          onChange={(e) => setRecoveryEmail(e.target.value)}
+                          disabled={isRecovering}
+                          required
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsRecoveryOpen(false)}
+                          disabled={isRecovering}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={isRecovering || !recoveryEmail.trim()}
+                          className="gap-2"
+                        >
+                          {isRecovering ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" />
+                              Enviando...
+                            </>
+                          ) : (
+                            "Restablecer Contraseña"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <Button

@@ -3,14 +3,17 @@ import string
 
 from apps.business.models import Business, UserBusiness
 from apps.documents.models import Document, TaxCalendar
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
+from django.utils.html import escape, strip_tags
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -78,7 +81,7 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
     def get_permissions(self):
-        if self.action in {"login", "advisors", "stats"}:
+        if self.action in {"login", "advisors", "stats", "recover_password"}:
             return [AllowAny()]
         return super().get_permissions()
 
@@ -109,6 +112,92 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response(
             {"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[AllowAny],
+        authentication_classes=[],
+    )
+    def recover_password(self, request):
+        """
+        Endpoint público para recuperación de contraseña.
+        Genera una contraseña temporal segura y la envía al usuario (o la devuelve para dev).
+        """
+        email = request.data.get("email", "").strip().lower()
+
+        if not email:
+            return Response(
+                {"detail": "El correo electrónico es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Buscar el usuario
+        user = User.objects.filter(email=email).first()
+
+        if not user:
+            return Response(
+                {
+                    "detail": "El correo electrónico introducido no está registrado en el sistema."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Generar contraseña temporal segura
+        chars = string.ascii_letters + string.digits + "!@#$%&*"
+        temp_password = "".join(secrets.choice(chars) for _ in range(14))
+
+        # Actualizar contraseña en base de datos
+        user.set_password(temp_password)
+        user.save(update_fields=["password"])
+
+        greeting_name = escape(user.first_name.strip()) or "usuario"
+        subject = "🔑 Restablecimiento de contraseña - Consultoritas"
+        html_message = f"""
+        <div style="margin:0;padding:0;background-color:#f5f7fb;font-family:Arial, Helvetica, sans-serif;color:#1f2937;">
+          <div style="max-width:640px;margin:0 auto;padding:40px 20px;">
+            <div style="background:#ffffff;border-radius:16px;box-shadow:0 10px 30px rgba(15,23,42,0.08);overflow:hidden;">
+              <div style="background:linear-gradient(135deg,#0f172a,#1d4ed8);padding:28px 32px;color:#ffffff;">
+                <div style="font-size:28px;font-weight:700;letter-spacing:0.3px;">Consultoritas</div>
+                <div style="margin-top:8px;font-size:14px;opacity:0.92;">Recuperación segura de acceso</div>
+              </div>
+              <div style="padding:32px;line-height:1.6;font-size:15px;">
+                <p style="margin:0 0 16px;">Hola, {greeting_name}.</p>
+                <p style="margin:0 0 16px;">Hemos generado una contraseña temporal para que puedas acceder a tu cuenta.</p>
+                <div style="margin:24px 0;padding:18px 20px;border:1px solid #dbe4f0;border-radius:12px;background:#f8fafc;font-family:monospace;font-size:18px;letter-spacing:1px;text-align:center;color:#0f172a;word-break:break-word;">
+                  {temp_password}
+                </div>
+                <p style="margin:0 0 12px;color:#374151;">Por seguridad, te recomendamos cambiarla inmediatamente al entrar en <strong>Configuración</strong>.</p>
+                <p style="margin:0;color:#6b7280;font-size:13px;">Si no solicitaste este cambio, puedes ignorar este correo.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        """.strip()
+        plain_message = strip_tags(html_message)
+
+        try:
+            send_mail(
+                subject,
+                plain_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                html_message=html_message,
+            )
+        except Exception:
+            return Response(
+                {"detail": "No se pudo enviar el correo de recuperación."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        response_data = {"message": "Contraseña temporal generada con éxito."}
+        if settings.DEBUG:
+            response_data["generated_password"] = temp_password
+
+        return Response(
+            response_data,
+            status=status.HTTP_200_OK,
         )
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
