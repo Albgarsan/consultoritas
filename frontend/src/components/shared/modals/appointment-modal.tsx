@@ -54,49 +54,49 @@ const ALL_SPECIALTIES = ["fiscal", "laboral", "contable", "judicial"]
 
 const advisoryTypes = [
   {
+    id: "general",
+    title: "Asesoramiento General",
+    icon: HelpCircle,
+    description: "Consulta general o no sé qué tipo de asesoría necesito",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
+  },
+  {
     id: "fiscal",
     title: "Asesoría Fiscal",
     icon: Calculator,
     description: "Impuestos, declaraciones y planificación tributaria",
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    borderColor: "border-primary/30",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
   {
     id: "laboral",
     title: "Asesoría Laboral",
     icon: Briefcase,
     description: "Contratos, nóminas y seguridad social",
-    color: "text-accent",
-    bgColor: "bg-accent/10",
-    borderColor: "border-accent/30",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
   {
     id: "contable",
     title: "Asesoría Contable",
     icon: Scale,
     description: "Contabilidad, balances y cuentas anuales",
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-50",
-    borderColor: "border-emerald-300",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
   {
     id: "judicial",
     title: "Asesoría Judicial",
     icon: Gavel,
     description: "Litigios, reclamaciones y procedimientos judiciales",
-    color: "text-amber-600",
-    bgColor: "bg-amber-50",
-    borderColor: "border-amber-300",
-  },
-  {
-    id: "general",
-    title: "Asesoramiento General",
-    icon: HelpCircle,
-    description: "Consulta general o no sé qué tipo de asesoría necesito",
-    color: "text-muted-foreground",
-    bgColor: "bg-muted",
-    borderColor: "border-muted-foreground/30",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
 ]
 
@@ -131,7 +131,7 @@ export function AppointmentModal({
               name: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.email,
               role: u.role || "Asesor",
               initials: u.first_name ? u.first_name[0] : u.email[0].toUpperCase(),
-              color: "bg-primary/20 text-primary",
+              color: "bg-[#173d77]/10 text-[#173d77]",
               isPartner: Boolean(u.is_staff),
               specialties: Array.isArray(u.specialties) && u.specialties.length > 0
                 ? u.specialties
@@ -284,20 +284,25 @@ export function AppointmentModal({
 
   return (
     <Dialog open={open} onOpenChange={resetAndClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-4 border-b">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto border border-slate-200 bg-white p-0 shadow-2xl sm:rounded-[2rem]">
+        <div className="relative overflow-hidden rounded-[2rem]">
+          <div className="pointer-events-none absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-[#173d77] via-sky-500 to-[#173d77]" />
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
+
+        <DialogHeader className="border-b border-slate-200 px-6 pb-4 pt-6 md:px-8">
           <DialogDescription className="sr-only">
             Formulario para agendar una cita con Consultoritas
           </DialogDescription>
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-3">
+            <DialogTitle className="flex items-center gap-3 text-[#173d77]">
               <ConsultoritasLogo variant="icon" />
               <span>Agendar Cita - Consultoritas</span>
             </DialogTitle>
           </div>
 
           {/* Progress Steps */}
-          <div className="flex items-center gap-2 mt-4">
+          <div className="mt-4 flex items-center gap-2">
             {[
               { num: 1, label: "Sector" },
               { num: 2, label: "Asesor" },
@@ -308,17 +313,17 @@ export function AppointmentModal({
                   <div className={cn(
                     "size-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
                     step >= s.num
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-muted text-muted-foreground"
+                      ? "bg-[#173d77] text-white"
+                      : "bg-slate-100 text-slate-500"
                   )}>
                     {step > s.num ? <Check className="size-4" /> : s.num}
                   </div>
-                  <span className="text-xs text-muted-foreground mt-1">{s.label}</span>
+                  <span className="mt-1 text-xs text-slate-500">{s.label}</span>
                 </div>
                 {idx < 2 && (
                   <div className={cn(
                     "w-12 h-0.5 transition-colors mb-5",
-                    step > s.num ? "bg-accent" : "bg-muted"
+                    step > s.num ? "bg-[#173d77]" : "bg-slate-200"
                   )} />
                 )}
               </div>
@@ -327,13 +332,14 @@ export function AppointmentModal({
         </DialogHeader>
 
         {/* Step 1: Select Sector/Advisory Type */}
+        <div className="px-6 pb-6 md:px-8">
         {step === 1 && (
-          <div className="py-6 space-y-4">
+          <div className="space-y-4 py-6">
             <div className="text-center mb-6">
-              <h3 className="text-lg font-semibold text-foreground">
+                <h3 className="text-lg font-semibold text-[#173d77]">
                 Selecciona el tipo de asesoría
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-slate-500">
                 Elige el área en la que necesitas ayuda
               </p>
             </div>
@@ -343,15 +349,15 @@ export function AppointmentModal({
                 <Card
                   key={type.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-md border-2",
+                    "cursor-pointer overflow-hidden border border-slate-200 transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]",
                     selectedType === type.id
-                      ? `${type.borderColor} shadow-md`
-                      : "border-border hover:border-accent/50"
+                      ? "border-[#173d77]/30 shadow-[0_14px_40px_-28px_rgba(23,61,119,0.4)]"
+                      : "hover:border-[#173d77]/30"
                   )}
                   onClick={() => handleTypeSelect(type.id)}
                 >
-                  <CardContent className="p-5 space-y-3">
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", type.bgColor)}>
+                  <CardContent className="space-y-3 p-5">
+                    <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", type.bgColor)}>
                       <type.icon className={cn("size-6", type.color)} />
                     </div>
                     <div>
@@ -367,24 +373,24 @@ export function AppointmentModal({
 
         {/* Step 2: Select Advisor */}
         {step === 2 && selectedType && (
-          <div className="py-6 space-y-6">
+          <div className="space-y-6 py-6">
             <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
+              <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-[#173d77] hover:bg-[#173d77]/5 hover:text-[#173d77]">
                 <ChevronLeft className="size-4 mr-1" />
                 Volver
               </Button>
               {selectedTypeData && (
-                <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color)}>
+                <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color, "border-slate-200") }>
                   {selectedTypeData.title}
                 </Badge>
               )}
             </div>
 
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-[#173d77]">
                 Selecciona un asesor
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-slate-500">
                 {selectedType === "general"
                   ? "Para consultas generales, nuestros socios principales te atenderán"
                   : "Elige quién te gustaría que te atienda"
@@ -396,12 +402,12 @@ export function AppointmentModal({
               {/* "Any" option - only for non-general types */}
               {selectedType !== "general" && (
                 <Card
-                  className="cursor-pointer border-2 border-border hover:border-accent/50 hover:shadow-md transition-all"
+                  className="cursor-pointer border border-slate-200 transition-all hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]"
                   onClick={() => handleAdvisorSelect("any")}
                 >
                   <CardContent className="p-4 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                      <User className="size-6 text-muted-foreground" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#173d77]/5">
+                      <User className="size-6 text-[#173d77]" />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-foreground">Cualquier asesor disponible</h4>
@@ -418,7 +424,7 @@ export function AppointmentModal({
               {getAvailableAdvisors().map((advisor) => (
                 <Card
                   key={advisor.id}
-                  className="cursor-pointer border-2 border-border hover:border-accent/50 hover:shadow-md transition-all"
+                  className="cursor-pointer border border-slate-200 transition-all hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]"
                   onClick={() => handleAdvisorSelect(advisor.id)}
                 >
                   <CardContent className="p-4 flex items-center gap-4">
@@ -431,7 +437,7 @@ export function AppointmentModal({
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold text-foreground">{advisor.name}</h4>
                         {advisor.isPartner && (
-                          <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                          <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
                             Socio
                           </Badge>
                         )}
@@ -448,42 +454,41 @@ export function AppointmentModal({
 
         {/* Step 3: Select Date & Time */}
         {step === 3 && selectedAdvisor && (
-          <div className="py-6 space-y-6">
+          <div className="space-y-6 py-6">
             <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" onClick={() => { setStep(2); setSelectedTime(null); setSelectedDate(null); }}>
+              <Button variant="ghost" size="sm" onClick={() => { setStep(2); setSelectedTime(null); setSelectedDate(null); }} className="text-[#173d77] hover:bg-[#173d77]/5 hover:text-[#173d77]">
                 <ChevronLeft className="size-4 mr-1" />
                 Volver
               </Button>
               <div className="flex items-center gap-2">
                 {selectedTypeData && (
-                  <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color, "text-xs")}>
+                  <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color, "text-xs border-slate-200")}>
                     {selectedTypeData.title}
                   </Badge>
                 )}
                 {selectedAdvisorData && (
-                  <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
                     {selectedAdvisorData.name}
-                  </Badge>
+                    </Badge>
                 )}
               </div>
             </div>
 
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-foreground">
-                Selecciona fecha y hora
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+                        <DialogDescription className="sr-only">Formulario para agendar una cita con Consultoritas</DialogDescription>
+              <p className="mt-1 text-sm text-slate-500">
                 Elige el momento que mejor te convenga
               </p>
             </div>
 
             {/* Calendar */}
-            <div className="border rounded-xl p-4">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between mb-4">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                  className="text-[#173d77] hover:bg-[#173d77]/5"
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
@@ -494,6 +499,7 @@ export function AppointmentModal({
                   variant="ghost"
                   size="icon"
                   onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                  className="text-[#173d77] hover:bg-[#173d77]/5"
                 >
                   <ChevronRight className="size-4" />
                 </Button>
@@ -520,12 +526,12 @@ export function AppointmentModal({
                       disabled={!isAvailable}
                       onClick={() => { setSelectedDate(day); setSelectedTime(null); }}
                       className={cn(
-                        "aspect-square rounded-lg text-sm transition-colors",
+                        "aspect-square rounded-xl text-sm transition-colors",
                         isAvailable
-                          ? "hover:bg-accent/20 cursor-pointer"
-                          : "text-muted-foreground/40 cursor-not-allowed",
-                        isSelected && "bg-accent text-accent-foreground",
-                        isAvailable && !isSelected && "font-medium"
+                          ? "cursor-pointer hover:bg-[#173d77]/10"
+                          : "cursor-not-allowed text-muted-foreground/40",
+                        isSelected && "bg-[#173d77] text-white",
+                        isAvailable && !isSelected && "font-medium text-slate-700"
                       )}
                     >
                       {day.getDate()}
@@ -538,8 +544,8 @@ export function AppointmentModal({
             {/* Time Slots */}
             {selectedDate && (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <CalendarDays className="size-4 text-accent" />
+                <div className="flex items-center gap-2 text-sm font-medium text-[#173d77]">
+                  <CalendarDays className="size-4 text-[#173d77]" />
                   <span className="capitalize">{formatDate(selectedDate)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -549,8 +555,10 @@ export function AppointmentModal({
                       variant={selectedTime === time ? "default" : "outline"}
                       size="sm"
                       className={cn(
-                        "flex flex-col h-auto py-2",
-                        selectedTime !== time && "hover:bg-accent/10 hover:border-accent"
+                        "flex h-auto flex-col rounded-xl py-2",
+                        selectedTime === time
+                            ? "bg-[#173d77] text-white hover:bg-[#204b8f]"
+                            : "border-slate-200 text-slate-700 hover:border-[#173d77]/30 hover:bg-[#173d77]/5"
                       )}
                       onClick={() => handleSlotSelect(time, advisorId)}
                     >
@@ -570,9 +578,9 @@ export function AppointmentModal({
             {/* Confirm Button */}
             {selectedDate && selectedTime && (
               <div className="pt-4 border-t space-y-4">
-                <Card className="border-accent/30 bg-accent/5">
+                <Card className="border-[#173d77]/15 bg-[#173d77]/5">
                   <CardContent className="p-4 space-y-3">
-                    <h4 className="font-semibold text-foreground">Resumen de tu cita</h4>
+                    <h4 className="font-semibold text-[#173d77]">Resumen de tu cita</h4>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-muted-foreground">Tipo</p>
@@ -598,7 +606,7 @@ export function AppointmentModal({
                   </CardContent>
                 </Card>
 
-                                                <div className="space-y-4 pt-4 border-t">
+                                                <div className="space-y-4 pt-4 border-t border-slate-200">
                                                 {!hideIdentityFields ? (
                                                   <div className="grid gap-3">
                                                     <div className="space-y-1">
@@ -611,7 +619,7 @@ export function AppointmentModal({
                                                     </div>
                                                   </div>
                                                 ) : (
-                                                  <Card className="border-border/50 bg-muted/30">
+                                                  <Card className="border-slate-200 bg-slate-50">
                                                     <CardContent className="p-4 grid gap-1 text-sm">
                                                       <p className="text-muted-foreground">Cliente</p>
                                                       <p className="font-medium">{prefilledClientName || name || "Cliente"}</p>
@@ -621,14 +629,14 @@ export function AppointmentModal({
                                                   </Card>
                                                 )}
                   <div className="text-sm text-center text-muted-foreground">
-                                                  {!hideIdentityFields && <>¿Ya tienes cuenta? <a href="/login" className="text-accent underline font-medium cursor-pointer">Iniciar sesión</a></>}
+                                                  {!hideIdentityFields && <>¿Ya tienes cuenta? <a href="/login" className="text-[#173d77] underline font-medium cursor-pointer">Iniciar sesión</a></>}
                   </div>
                   <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1" onClick={() => { setSelectedTime(null); setSelectedDate(null); }}>
+                    <Button variant="outline" className="flex-1 border-slate-200 text-[#173d77] hover:bg-[#173d77]/5" onClick={() => { setSelectedTime(null); setSelectedDate(null); }}>
                       Modificar
                     </Button>
                     <Button
-                      className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
+                      className="flex-1 bg-[#173d77] text-white hover:bg-[#204b8f] shadow-[0_16px_36px_-18px_rgba(23,61,119,0.45)]"
                       disabled={hideIdentityFields ? (!selectedDate || !selectedTime) : (!name || !email || !selectedDate || !selectedTime)}
                       onClick={async () => {
                         try {
@@ -677,6 +685,8 @@ export function AppointmentModal({
             )}
           </div>
         )}
+        </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

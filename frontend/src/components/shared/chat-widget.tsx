@@ -37,7 +37,7 @@ export function ChatWidget() {
           >
             <Button
               onClick={() => setIsOpen(true)}
-              className="rounded-full shadow-xl bg-accent text-accent-foreground hover:bg-accent/90 flex items-center gap-2 h-12 px-6"
+              className="flex h-12 items-center gap-2 rounded-full bg-[#173d77] px-6 text-white shadow-[0_16px_36px_-18px_rgba(23,61,119,0.55)] hover:bg-[#204b8f]"
             >
               <MessageCircle className="size-5" />
               <span className="font-semibold">Hablar con IA</span>
@@ -52,9 +52,9 @@ export function ChatWidget() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 right-6 z-50 w-full max-w-sm sm:w-[400px] h-[500px] bg-background border border-border shadow-2xl rounded-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-6 right-6 z-50 flex h-[500px] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-200 bg-background shadow-2xl sm:w-[400px]"
           >
-            <header className="h-14 bg-primary text-primary-foreground flex items-center justify-between px-4 shrink-0">
+            <header className="flex h-14 shrink-0 items-center justify-between bg-[#173d77] px-4 text-white">
               <div className="flex items-center gap-2">
                 <Bot className="size-5" />
                 <span className="font-semibold">Consultoritas IA</span>
@@ -62,7 +62,7 @@ export function ChatWidget() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-primary-foreground hover:bg-primary-foreground/20 rounded-full h-8 w-8"
+                className="h-8 w-8 rounded-full text-white hover:bg-white/10"
                 onClick={() => setIsOpen(false)}
                 aria-label="Cerrar chat"
               >
@@ -76,7 +76,7 @@ export function ChatWidget() {
                   <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     {msg.role === "ai" && (
                       <Avatar className="w-8 h-8 shrink-0">
-                        <AvatarFallback className="bg-primary/20 text-primary">
+                        <AvatarFallback className="bg-[#173d77]/10 text-[#173d77]">
                           <Bot size={16} />
                         </AvatarFallback>
                       </Avatar>
@@ -84,7 +84,7 @@ export function ChatWidget() {
 
                     <div className={`rounded-2xl px-4 py-2 text-sm ${
                       msg.role === "user"
-                        ? "bg-accent text-accent-foreground rounded-tr-sm"
+                        ? "bg-[#173d77] text-white rounded-tr-sm"
                         : "bg-muted text-foreground rounded-tl-sm"
                     }`}>
                       {msg.content}
@@ -101,12 +101,12 @@ export function ChatWidget() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   placeholder="Escribe tu duda..."
-                  className="pr-12 rounded-full bg-muted/50 border-transparent focus-visible:ring-1 focus-visible:ring-primary"
+                  className="rounded-full border-transparent bg-muted/50 pr-12 focus-visible:ring-1 focus-visible:ring-[#173d77]"
                 />
                 <Button
                   size="icon"
                   disabled={!input.trim()}
-                  className="absolute right-1 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute right-1 h-8 w-8 rounded-full bg-[#173d77] text-white hover:bg-[#204b8f] disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={handleSend}
                   aria-label="Enviar mensaje"
                   aria-disabled={!input.trim()}
