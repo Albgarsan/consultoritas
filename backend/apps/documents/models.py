@@ -11,10 +11,9 @@ from django.db import models
 
 class Document(models.Model):
     STATUS_CHOICES = [
+        ("En cola", "En cola"),
         ("Pendiente", "Pendiente"),
-        ("Validado", "Validado"),
         ("Procesado", "Procesado"),
-        ("Rechazado", "Rechazado"),
         ("Error", "Error"),
     ]
     DOC_TYPE_CHOICES = [
@@ -35,9 +34,7 @@ class Document(models.Model):
     )
     file_name = models.CharField(max_length=500)
     storage_path = models.CharField(max_length=1000)
-    status = models.CharField(
-        max_length=50, choices=STATUS_CHOICES, default="Pendiente"
-    )
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="En cola")
     doc_type = models.CharField(max_length=50, choices=DOC_TYPE_CHOICES)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
@@ -218,12 +215,12 @@ class TaxCalendar(models.Model):
     """
 
     TAX_TYPE_CHOICES = [
-        ("IVA", "IVA"),
-        ("IRPF", "IRPF"),
-        ("Impuesto de Sociedades", "Impuesto de Sociedades"),
-        ("Retenciones", "Retenciones"),
-        ("Pagos a Cuenta", "Pagos a Cuenta"),
-        ("Aduanas", "Aduanas"),
+        ("111", "111"),
+        ("115", "115"),
+        ("123", "123"),
+        ("130", "130"),
+        ("202", "202"),
+        ("303", "303"),
     ]
     PERIOD_CHOICES = [
         ("Mensual", "Mensual"),
@@ -242,7 +239,14 @@ class TaxCalendar(models.Model):
     period_end = models.DateField()
     deadline = models.DateField(db_index=True)
     is_presented = models.BooleanField(default=False, db_index=True)
-    presented_date = models.DateField(null=True, blank=True)
+    presented_date = models.DateTimeField(null=True, blank=True)
+    presented_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="presented_tax_calendars",
+    )
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

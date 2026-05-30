@@ -56,6 +56,7 @@ class User(AbstractUser):
     work_schedule = models.JSONField(
         default=default_work_schedule, blank=True, null=False
     )
+    is_on_vacation = models.BooleanField(default=False)
     is_principal = models.BooleanField(
         default=False,
         help_text="Indica si es un Asesor Principal con permisos de gestión y citas generales.",

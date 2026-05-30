@@ -11,6 +11,13 @@ class Business(models.Model):
     sector = models.CharField(max_length=255, null=True, blank=True)
     has_employees = models.BooleanField(default=False)
     has_office_rent = models.BooleanField(default=False)
+    responsible_advisor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="managed_businesses",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     tax_status = models.CharField(max_length=20, default="AL DÍA", db_index=True)
     pending_incidents = models.IntegerField(default=0)
@@ -23,6 +30,7 @@ class Business(models.Model):
         verbose_name_plural = "Businesses"
         indexes = [
             models.Index(fields=["tax_status"]),
+            models.Index(fields=["responsible_advisor"]),
         ]
 
 
