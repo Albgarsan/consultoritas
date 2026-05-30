@@ -5,7 +5,6 @@ import {
   Users,
   FileCheck,
   Bot,
-  Receipt,
   Settings,
   LogOut,
   CalendarDays,
@@ -30,7 +29,6 @@ export function AdvisorSidebar({ currentView, onNavigate, onLogout, isPrincipal 
     { id: "citas", label: "Agenda y Citas", icon: CalendarDays },
     { id: "validacion", label: "Validar Facturas", icon: FileCheck },
     { id: "monitor-ia", label: "Monitor IA", icon: Bot },
-    { id: "facturacion", label: "Facturación Despacho", icon: Receipt },
     { id: "compliance", label: "Calendario Fiscal", icon: CheckSquare },
     ...(isPrincipal ? [{ id: "alta-asesor", label: "Alta de Asesores", icon: UserPlus }] : []),
   ]

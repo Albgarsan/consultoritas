@@ -9,7 +9,6 @@ import { AdvisorView } from "@/components/advisor/advisor-view"
 import { GestionClientes } from "@/components/advisor/client-management"
 import { ValidacionDocumental } from "@/components/advisor/validator"
 import { MonitorIA } from "@/components/advisor/ai-monitor"
-import { FacturacionView } from "@/components/advisor/table-view"
 import { AdvisorSettings } from "@/components/advisor/settings"
 import { AppointmentsManager } from "@/components/advisor/appointments-manager"
 import { ComplianceDashboard } from "@/components/advisor/compliance-dashboard"
@@ -140,11 +139,6 @@ export default function AdvisorPage() {
           {view === "monitor-ia" && (
             <Suspense fallback={<DashboardSkeleton />}>
               <MonitorIA />
-            </Suspense>
-          )}
-          {view === "facturacion" && (
-            <Suspense fallback={<TableSkeleton />}>
-              <FacturacionView />
             </Suspense>
           )}
           {view === "settings" && (

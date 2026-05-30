@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
@@ -21,6 +22,8 @@ import { mutate as globalMutate } from "swr"
 interface GestionClientesProps {
   onNavigateToMonitor: (clientId: string) => void
 }
+
+const ITEMS_PER_PAGE = 10
 
 type Client = {
   id: string
@@ -36,7 +39,17 @@ type Client = {
     id?: string | null
     has_employees?: boolean
     has_office_rent?: boolean
+    responsible_advisor_id?: string | null
+    responsible_advisor_name?: string | null
   }
+}
+
+type TaxCalendarEntry = {
+  business?: { id?: string }
+  period_start?: string
+  deadline?: string
+  is_presented?: boolean
+  tax_type?: string
 }
 
 type EditableClient = {
@@ -48,14 +61,17 @@ type EditableClient = {
   has_employees?: boolean
   has_office_rent?: boolean
   primary_business_id?: string | null
+  responsible_advisor_id?: string | null
 }
 
 export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState("all")
   const [fiscalFilter, setFiscalFilter] = useState("all")
   const [roleFilter, setRoleFilter] = useState("all")
+  const [advisorFilter, setAdvisorFilter] = useState("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [newClient, setNewClient] = useState({
     first_name: "",
@@ -65,6 +81,7 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
     role: "Autónomo",
     has_employees: false,
     has_office_rent: false,
+    responsible_advisor_id: "",
   })
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editClient, setEditClient] = useState<EditableClient | null>(null)
@@ -79,6 +96,13 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
     dedupingInterval: 30_000,
   })
   const { data: businesses = [], mutate: mutateBusinesses } = useApiData<Array<{ id?: string; tax_status?: string }>>("/api/business/companies/", {
+    dedupingInterval: 30_000,
+  })
+  const { data: advisors = [] } = useApiData<Array<{ id?: string; first_name?: string; last_name?: string; email?: string }>>("/api/users/?role=Asesor&is_staff=true&page_size=100", {
+    dedupingInterval: 60_000,
+  })
+  const currentYear = new Date().getFullYear()
+  const { data: calendarEntries = [] } = useApiData<TaxCalendarEntry[]>(`/api/documents/tax-calendar/?year=${currentYear}`, {
     dedupingInterval: 30_000,
   })
 
@@ -102,20 +126,78 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
 
   const clientsWithTaxStatus = useMemo<Client[]>(() => {
     const businessById = new Map<string, string>()
+    const advisorByBusinessId = new Map<string, { id?: string | null; name?: string | null }>()
     for (const business of businesses) {
       if (business?.id) {
         businessById.set(String(business.id), business.tax_status || "AL DÍA")
+        const rawBusiness = business as unknown as {
+          responsible_advisor_id?: string | null
+          responsible_advisor_name?: string | null
+        }
+        advisorByBusinessId.set(String(business.id), {
+          id: rawBusiness.responsible_advisor_id || null,
+          name: rawBusiness.responsible_advisor_name || null,
+        })
+      }
+    }
+
+    const pendingByBusiness = new Map<string, boolean>()
+    const today = new Date()
+    const month = today.getMonth() + 1
+    const day = today.getDate()
+    const inWindow = (month === 1 || month === 4 || month === 7 || month === 10) && day >= 1 && day <= 20
+    if (inWindow) {
+      for (const entry of calendarEntries) {
+        const businessId = entry.business?.id ? String(entry.business.id) : ""
+        if (!businessId) continue
+        const periodDate = entry.period_start ? new Date(entry.period_start) : null
+        if (!periodDate || Number.isNaN(periodDate.getTime())) continue
+        const periodMonth = periodDate.getMonth() + 1
+        const periodQuarter = periodMonth <= 3 ? 1 : periodMonth <= 6 ? 2 : periodMonth <= 9 ? 3 : 4
+        const currentQuarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4
+        if (periodDate.getFullYear() !== currentYear || periodQuarter !== currentQuarter) continue
+        if (entry.is_presented === false) {
+          pendingByBusiness.set(businessId, true)
+        }
       }
     }
 
     return clients.map((client: Client) => {
       const primaryBusinessId = client.primary_business?.id ? String(client.primary_business.id) : ""
+      const advisorInfo = advisorByBusinessId.get(primaryBusinessId)
+      const derivedStatus =
+        inWindow && pendingByBusiness.get(primaryBusinessId)
+          ? "Pendiente"
+          : (businessById.get(primaryBusinessId) || client.tax_status || "AL DÍA")
       return {
         ...client,
-        tax_status: businessById.get(primaryBusinessId) || client.tax_status,
+        primary_business: client.primary_business
+          ? {
+              ...client.primary_business,
+              responsible_advisor_id: advisorInfo?.id || client.primary_business.responsible_advisor_id || null,
+              responsible_advisor_name: advisorInfo?.name || client.primary_business.responsible_advisor_name || null,
+            }
+          : client.primary_business,
+        tax_status: derivedStatus,
       }
     })
-  }, [businesses, clients])
+  }, [businesses, clients, calendarEntries])
+
+  const advisorOptions = useMemo(() => {
+    const options = new Map<string, string>()
+
+    for (const client of clientsWithTaxStatus) {
+      const advisorId = client.primary_business?.responsible_advisor_id
+      if (!advisorId) continue
+      options.set(advisorId, client.primary_business?.responsible_advisor_name || "Asesor responsable")
+    }
+
+    return Array.from(options.entries()).map(([id, label]) => ({ id, label }))
+  }, [clientsWithTaxStatus])
+
+  const advisorSelectOptions = useMemo(() => {
+    return (advisors || []).map((a) => ({ id: String(a.id), label: `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Asesor" }))
+  }, [advisors])
 
   const handleAddClient = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -129,6 +211,7 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
         role: newClient.role || "Autónomo",
         has_employees: newClient.has_employees,
         has_office_rent: newClient.has_office_rent,
+        responsible_advisor_id: newClient.responsible_advisor_id || undefined,
       }
 
       const res = await apiFetch("/api/users/create-with-business/", {
@@ -149,6 +232,7 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
           role: "Autónomo",
           has_employees: false,
           has_office_rent: false,
+          responsible_advisor_id: "",
         })
 
         const currentYear = new Date().getFullYear()
@@ -249,6 +333,7 @@ const triggerDeleteVerification = (client: Client) => {
       email: client.email || "",
       role: client.role || "Autónomo",
       primary_business_id: client.primary_business?.id || null,
+      responsible_advisor_id: client.primary_business?.responsible_advisor_id || null,
       has_employees: client.primary_business?.has_employees || false,
       has_office_rent: client.primary_business?.has_office_rent || false,
     })
@@ -286,6 +371,7 @@ const triggerDeleteVerification = (client: Client) => {
         const businessPayload = {
           has_employees: editHasEmployees,
           has_office_rent: editHasOfficeRent,
+          responsible_advisor_id: editClient.responsible_advisor_id || null,
         }
         const bRes = await apiFetch(`/api/business/companies/${editClient.primary_business_id}/`, {
           method: "PATCH",
@@ -324,11 +410,41 @@ const triggerDeleteVerification = (client: Client) => {
   const byFiscal = byRole.filter((c: Client) =>
     fiscalFilter === "all" ? true : fiscalFilter === "ok" ? c.tax_status === "AL DÍA" : c.tax_status !== "AL DÍA",
   )
-  const filtered = byFiscal.filter((client: Client) => {
+  const byAdvisor = byFiscal.filter((client: Client) => {
+    const advisorId = client.primary_business?.responsible_advisor_id || ""
+    if (advisorFilter === "all") return true
+    if (advisorFilter === "unassigned") return !advisorId
+    return advisorId === advisorFilter
+  })
+  const filtered = byAdvisor.filter((client: Client) => {
     const fullName = `${client.first_name || ""} ${client.last_name || ""}`.toLowerCase()
     const email = (client.email || "").toLowerCase()
     return fullName.includes(debouncedSearch.toLowerCase()) || email.includes(debouncedSearch.toLowerCase())
   })
+
+  const sortedFiltered = useMemo(() => {
+    return [...filtered].sort((left, right) => {
+      const leftName = `${left.first_name || ""} ${left.last_name || ""}`.trim().toLowerCase()
+      const rightName = `${right.first_name || ""} ${right.last_name || ""}`.trim().toLowerCase()
+      return leftName.localeCompare(rightName)
+    })
+  }, [filtered])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, statusFilter, fiscalFilter, roleFilter, advisorFilter])
+
+  const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / ITEMS_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const pageStart = (safeCurrentPage - 1) * ITEMS_PER_PAGE
+  const pageEnd = pageStart + ITEMS_PER_PAGE
+  const pagedClients = sortedFiltered.slice(pageStart, pageEnd)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   return (
     <div className="space-y-6">
@@ -377,6 +493,18 @@ const triggerDeleteVerification = (client: Client) => {
                   <option value="Sociedad">Sociedad</option>
                 </select>
               </div>
+              <div className="space-y-2">
+                <Label>Asesor Responsable</Label>
+                <Select value={newClient.responsible_advisor_id || "__none"} onValueChange={(v) => setNewClient({ ...newClient, responsible_advisor_id: v === "__none" ? "" : v })}>
+                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Sin asignar</SelectItem>
+                    {advisorSelectOptions.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Obligaciones Fiscales</Label>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
@@ -413,11 +541,12 @@ const triggerDeleteVerification = (client: Client) => {
             </div>
             <div className="rounded-lg border">
               {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="grid grid-cols-[50px_1.4fr_1.2fr_0.8fr_1fr_0.8fr] items-center gap-4 border-b px-4 py-3 last:border-b-0">
+                <div key={index} className="grid grid-cols-[50px_1.4fr_1.2fr_0.8fr_1.2fr_1fr_0.8fr] items-center gap-4 border-b px-4 py-3 last:border-b-0">
                   <Skeleton className="size-8 rounded-full" />
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-4 w-48" />
                   <Skeleton className="h-5 w-20" />
+                  <Skeleton className="h-5 w-28" />
                   <Skeleton className="h-6 w-24" />
                   <div className="flex justify-end gap-2">
                     <Skeleton className="size-8 rounded-full" />
@@ -450,6 +579,13 @@ const triggerDeleteVerification = (client: Client) => {
                     <option value="ok">AL DÍA</option>
                     <option value="incidence">INCIDENCIA</option>
                   </select>
+                  <select value={advisorFilter} onChange={(e) => setAdvisorFilter(e.target.value)} className="input bg-white p-2 rounded">
+                    <option value="all">Responsable: Todos</option>
+                    <option value="unassigned">Sin asignar</option>
+                    {advisorOptions.map((advisor) => (
+                      <option key={advisor.id} value={advisor.id}>{advisor.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </CardHeader>
@@ -463,18 +599,19 @@ const triggerDeleteVerification = (client: Client) => {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
+                  <TableHead>Asesor Responsable</TableHead>
                   <TableHead>Estado Fiscal</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {pagedClients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                       No hay clientes para los filtros seleccionados.
                     </TableCell>
                   </TableRow>
-                ) : filtered.map((client) => (
+                ) : pagedClients.map((client) => (
               <TableRow key={client.id}>
                 <TableCell>
                   <Avatar className="size-8">
@@ -486,6 +623,11 @@ const triggerDeleteVerification = (client: Client) => {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{client.email}</TableCell>
                 <TableCell>{client.role}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200">
+                    {client.primary_business?.responsible_advisor_name || "Sin asignar"}
+                  </Badge>
+                </TableCell>
                 <TableCell>
                   {client.tax_status == null ? (
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -524,6 +666,29 @@ const triggerDeleteVerification = (client: Client) => {
             ))}
           </TableBody>
         </Table>
+        <div className="flex items-center justify-between gap-3 px-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {sortedFiltered.length === 0 ? 0 : pageStart + 1}-{Math.min(pageEnd, sortedFiltered.length)} de {sortedFiltered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
+              disabled={safeCurrentPage <= 1}
+            >
+              Anterior
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))}
+              disabled={safeCurrentPage >= totalPages}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       </Card>
         </>
       )}
@@ -557,6 +722,18 @@ const triggerDeleteVerification = (client: Client) => {
                   <option value="Autónomo">Autónomo</option>
                   <option value="Sociedad">Sociedad</option>
                 </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Asesor Responsable</Label>
+                <Select value={editClient.responsible_advisor_id || "__none"} onValueChange={(v) => setEditClient({ ...editClient, responsible_advisor_id: v === "__none" ? null : v })}>
+                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Sin asignar</SelectItem>
+                    {advisorSelectOptions.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Obligaciones Fiscales</Label>

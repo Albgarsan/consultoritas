@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import type { ChangeEvent, FormEvent } from "react"
 import {
   FileText,
   CheckCircle,
@@ -14,6 +15,8 @@ import {
   FileSpreadsheet,
   Edit2,
   Loader2,
+  MoreHorizontal,
+  Upload,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,12 +40,28 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { apiFetch, parseBackendError, type DocumentoFacturacion, type InvoiceDataAEAT } from "@/lib/api"
@@ -84,7 +103,6 @@ type EditableAEAT = {
   serie: string
   invoice_number: string
   invoice_number_final: string
-  nif_tipo: string
   nif_codigo_pais: string
   nif_identificacion: string
   clave_operacion: string
@@ -98,6 +116,7 @@ type EditableAEAT = {
 
 const EXCEL_HEADER_FILL = "1E3A8A"
 const EXCEL_ZEBRA_FILL = "F8FAFC"
+const ITEMS_PER_PAGE = 10
 
 const REQUIRED_OCR_FIELDS: Array<keyof InvoiceDataAEAT> = [
   "issue_date",
@@ -110,22 +129,16 @@ const REQUIRED_OCR_FIELDS: Array<keyof InvoiceDataAEAT> = [
 ]
 
 // Simple NIF validation: basic format check for Spanish NIF/CIF
-function validateNIF(nif: string, nifTipo?: string): { valid: boolean; message?: string } {
+function validateNIF(nif: string): { valid: boolean; message?: string } {
   if (!nif || !nif.trim()) return { valid: true }
 
   const normalized = nif.trim().toUpperCase()
-  const tipo = (nifTipo || "NIF").toUpperCase()
 
-  if (tipo === "NIF" || tipo === "NIE") {
-    // Format: 8 digits + 1 letter, or letter + 7 digits + 1 letter
-    if (!/^[0-9]{8}[A-Z]$/.test(normalized) && !/^[XYZ][0-9]{7}[A-Z]$/.test(normalized)) {
-      return { valid: false, message: "Formato NIF/NIE inválido (ej: 12345678A)" }
-    }
-  } else if (tipo === "CIF") {
-    // Format: letter + 7 digits + digit/letter
-    if (!/^[A-J][0-9]{7}[0-9A-J]$/.test(normalized)) {
-      return { valid: false, message: "Formato CIF inválido (ej: A12345674)" }
-    }
+  // Campo unificado: acepta NIF/NIE/CIF válido alfanumérico.
+  const nifNieValid = /^[0-9]{8}[A-Z]$/.test(normalized) || /^[XYZ][0-9]{7}[A-Z]$/.test(normalized)
+  const cifValid = /^[A-Z][0-9]{7}[A-Z0-9]$/.test(normalized)
+  if (!nifNieValid && !cifValid) {
+    return { valid: false, message: "Formato de identificación fiscal inválido (NIF/CIF/NIE)." }
   }
 
   return { valid: true }
@@ -189,7 +202,6 @@ function rowToEditable(row: ValidationRow): EditableAEAT {
     serie: invoice.serie || "",
     invoice_number: invoice.invoice_number || "",
     invoice_number_final: invoice.invoice_number_final || "",
-    nif_tipo: invoice.nif_tipo || "NIF",
     nif_codigo_pais: invoice.nif_codigo_pais || "ES",
     nif_identificacion: invoice.nif_identificacion || invoice.supplier_tax_id || "",
     clave_operacion: invoice.clave_operacion || "01",
@@ -220,12 +232,40 @@ function counterpartyLabel(doc: DocumentoValidacion) {
   )
 }
 
+function normalizeStatus(status?: string) {
+  return (status || "").trim().toLowerCase()
+}
+
+function getStatusPriority(status?: string) {
+  const normalized = normalizeStatus(status)
+  if (normalized === "pendiente" || normalized === "en cola") return 0
+  if (normalized === "procesado") return 1
+  return 2
+}
+
+function getUploadedAtMillis(doc: DocumentoValidacion) {
+  const source = doc.uploaded_at || doc.invoice_data?.issue_date || 0
+  const millis = new Date(source).getTime()
+  return Number.isFinite(millis) ? millis : 0
+}
+
 export function ValidacionDocumental({ documents = [] }: { documents?: DocumentoValidacion[] }) {
   const [filters, setFilters] = useState<FilterState>({})
   const [activeTab, setActiveTab] = useState("recibidas")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isUploadOpen, setIsUploadOpen] = useState(false)
+  const [showExportWarning, setShowExportWarning] = useState(false)
+  const [pendingExportType, setPendingExportType] = useState<"recibidas" | "emitidas" | "ambas" | null>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadBusinessId, setUploadBusinessId] = useState("__none")
+  const [uploadDocType, setUploadDocType] = useState("__none")
+  const [isUploading, setIsUploading] = useState(false)
 
   const { data: apiDocs = [], mutate: mutateDocs } = useApiData<DocumentoValidacion[]>("/api/documents/", {
     dedupingInterval: 5000
+  })
+  const { data: businessOptions = [] } = useApiData<Array<{ id?: string; name?: string; business_name?: string }>>("/api/business/companies/", {
+    dedupingInterval: 30_000,
   })
 
   const initialDocs = documents.length > 0 ? documents : apiDocs
@@ -253,7 +293,6 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
     serie: "",
     invoice_number: "",
     invoice_number_final: "",
-    nif_tipo: "NIF",
     nif_codigo_pais: "ES",
     nif_identificacion: "",
     clave_operacion: "01",
@@ -264,7 +303,10 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
     tipo_recargo_equivalencia: "",
     cuota_recargo_equivalencia: "",
   })
-  const [nifValidation, setNifValidation] = useState<{ valid: boolean; message?: string }>({ valid: true })
+  const nifValidation = useMemo(
+    () => validateNIF(editedData.nif_identificacion),
+    [editedData.nif_identificacion],
+  )
 
   const [isSaving, setIsSaving] = useState(false)
   const recibidas = useMemo(() => {
@@ -302,6 +344,22 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
       }))
   }, [initialDocs])
 
+  const sortedRecibidas = useMemo(() => {
+    return [...recibidas].sort((left, right) => {
+      const priorityDiff = getStatusPriority(left.doc.status) - getStatusPriority(right.doc.status)
+      if (priorityDiff !== 0) return priorityDiff
+      return getUploadedAtMillis(right.doc) - getUploadedAtMillis(left.doc)
+    })
+  }, [recibidas])
+
+  const sortedEmitidas = useMemo(() => {
+    return [...emitidas].sort((left, right) => {
+      const priorityDiff = getStatusPriority(left.doc.status) - getStatusPriority(right.doc.status)
+      if (priorityDiff !== 0) return priorityDiff
+      return getUploadedAtMillis(right.doc) - getUploadedAtMillis(left.doc)
+    })
+  }, [emitidas])
+
   const clientOptions = useMemo(() => {
     const names = new Set<string>()
     ;[...recibidas, ...emitidas].forEach((row) => {
@@ -314,8 +372,23 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
     return Array.from(names).sort((a, b) => a.localeCompare(b))
   }, [recibidas, emitidas])
 
+  const uploadBusinessOptions = useMemo(() => {
+    return (businessOptions || [])
+      .map((business) => ({
+        id: String(business.id || ""),
+        label: business.name || business.business_name || "Cliente",
+      }))
+      .filter((business) => business.id)
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [businessOptions])
+
+  const selectedClientRows = useMemo(() => {
+    if (!filters.client || filters.client === "all") return []
+    return [...sortedRecibidas, ...sortedEmitidas].filter((row) => row.cliente === filters.client)
+  }, [filters.client, sortedRecibidas, sortedEmitidas])
+
   const filteredRecibidas = useMemo(() => {
-    let result = recibidas
+    let result = sortedRecibidas
     if (filters.status) {
       const wanted = filters.status.toLowerCase()
       result = result.filter((row) => (row.doc.status || "").toLowerCase() === wanted)
@@ -330,10 +403,10 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
       result = result.filter((row) => toDateMillis(row.doc) <= filters.dateToMillis!)
     }
     return result
-  }, [recibidas, filters])
+  }, [sortedRecibidas, filters])
 
   const filteredEmitidas = useMemo(() => {
-    let result = emitidas
+    let result = sortedEmitidas
     if (filters.status) {
       const wanted = filters.status.toLowerCase()
       result = result.filter((row) => (row.doc.status || "").toLowerCase() === wanted)
@@ -348,7 +421,24 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
       result = result.filter((row) => toDateMillis(row.doc) <= filters.dateToMillis!)
     }
     return result
-  }, [emitidas, filters])
+  }, [sortedEmitidas, filters])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, filters.client, filters.status, filters.dateFromMillis, filters.dateToMillis])
+
+  const activeRows = activeTab === "recibidas" ? filteredRecibidas : filteredEmitidas
+  const totalPages = Math.max(1, Math.ceil(activeRows.length / ITEMS_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const pageStart = (safeCurrentPage - 1) * ITEMS_PER_PAGE
+  const pageEnd = pageStart + ITEMS_PER_PAGE
+  const pagedRows = activeRows.slice(pageStart, pageEnd)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   const pendingValidation = [...filteredRecibidas, ...filteredEmitidas].filter(
     (row) => (row.doc.status || "").toLowerCase() !== "procesado",
@@ -361,6 +451,56 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
     setSelectedRow(row)
     setEditedData(rowToEditable(row))
     setIsValidationOpen(true)
+  }
+
+  const handleUploadDocument = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!uploadFile) {
+      toast.error("Debes seleccionar un archivo")
+      return
+    }
+
+    if (!uploadBusinessId || uploadBusinessId === "__none") {
+      toast.error("Debes seleccionar un cliente específico")
+      return
+    }
+
+    if (!uploadDocType || uploadDocType === "__none") {
+      toast.error("Debes seleccionar el tipo de factura")
+      return
+    }
+
+    const mappedDocType = uploadDocType === "Emitida" ? "Ingreso" : "Factura"
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", uploadFile)
+      formData.append("business", uploadBusinessId)
+      formData.append("doc_type", mappedDocType)
+
+      const response = await apiFetch("/api/documents/", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(parseBackendError(errorData))
+      }
+
+      toast.success("Factura subida correctamente")
+      setIsUploadOpen(false)
+      setUploadFile(null)
+      setUploadBusinessId("__none")
+      setUploadDocType("__none")
+      await mutateDocs()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo subir la factura")
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   useEffect(() => {
@@ -395,12 +535,6 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
       if (objectUrl) window.URL.revokeObjectURL(objectUrl)
     }
   }, [selectedRow, isValidationOpen])
-
-  // Validate NIF format whenever it or its type changes
-  useEffect(() => {
-    const validation = validateNIF(editedData.nif_identificacion, editedData.nif_tipo)
-    setNifValidation(validation)
-  }, [editedData.nif_identificacion, editedData.nif_tipo])
 
   const updateTaxBreakdown = (nextBase: string, nextTipoIva: string, nextRecargo: string) => {
     const base = parseNullableNumber(nextBase) ?? 0
@@ -438,7 +572,6 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
       serie: editedData.serie || null,
       invoice_number: editedData.invoice_number || null,
       invoice_number_final: editedData.invoice_number_final || null,
-      nif_tipo: editedData.nif_tipo || null,
       nif_codigo_pais: editedData.nif_codigo_pais || null,
       nif_identificacion: editedData.nif_identificacion || null,
       clave_operacion: editedData.clave_operacion || "01",
@@ -477,13 +610,50 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
     }
   }
 
-  const handleExportExcel = (type: "recibidas" | "emitidas" | "ambas") => {
+  const handleOpenInNewTab = async (row: ValidationRow) => {
+    try {
+      const response = await apiFetch(`/api/documents/${row.id}/download/?preview=true`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(parseBackendError(errorData))
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      window.open(url, "_blank", "noopener,noreferrer")
+      setTimeout(() => window.URL.revokeObjectURL(url), 5000)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo abrir el archivo")
+    }
+  }
+
+  const handleDeleteDocument = async (row: ValidationRow) => {
+    if (!window.confirm("¿Eliminar esta factura? Esta acción no se puede deshacer.")) return
+    try {
+      const response = await apiFetch(`/api/documents/${row.id}/`, { method: "DELETE" })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(parseBackendError(errorData))
+      }
+      toast.success("Factura eliminada")
+      window.dispatchEvent(new Event("consultoritas:documents-updated"))
+      if (selectedRow?.id === row.id) {
+        setIsValidationOpen(false)
+        setSelectedRow(null)
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar la factura")
+    }
+  }
+
+  const executeExport = (type: "recibidas" | "emitidas" | "ambas") => {
+    const processedRecibidas = filteredRecibidas.filter((row) => (row.doc.status || "").toLowerCase() === "procesado")
+    const processedEmitidas = filteredEmitidas.filter((row) => (row.doc.status || "").toLowerCase() === "procesado")
     const exportRows =
       type === "recibidas"
-        ? filteredRecibidas
+        ? processedRecibidas
         : type === "emitidas"
-          ? filteredEmitidas
-          : [...filteredRecibidas, ...filteredEmitidas]
+          ? processedEmitidas
+          : [...processedRecibidas, ...processedEmitidas]
 
     if (exportRows.length === 0) {
       toast.error("No hay facturas para exportar con los filtros actuales")
@@ -492,23 +662,19 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
 
     void (async () => {
       try {
-        // @ts-ignore exceljs is loaded at runtime only
-        const ExcelJsModule = await import("exceljs")
+        const ExcelJsModule = (await import("exceljs")) as {
+          Workbook: new () => {
+            addWorksheet: (name: string) => any
+            xlsx: { writeBuffer: () => Promise<ArrayBuffer> }
+          }
+        }
         const { Workbook } = ExcelJsModule
         const workbook = new Workbook()
-        const worksheet = workbook.addWorksheet("Validacion_AEAT")
-
         const headers = [
-          "Tipo",
-          "ID",
-          "Cliente",
-          "Contraparte",
           "Fecha Expedición",
           "Fecha Operación",
           "Serie",
           "Número",
-          "Número Final",
-          "NIF Tipo",
           "NIF Código País",
           "NIF Identificación",
           "Clave Operación",
@@ -518,68 +684,72 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
           "Tipo Recargo",
           "Cuota Recargo",
           "Total Factura",
-          "Estado",
-          "Fiabilidad IA",
         ]
 
-        worksheet.addRow(headers)
-        worksheet.views = [{ state: "frozen", ySplit: 1 }]
-        worksheet.autoFilter = {
-          from: { row: 1, column: 1 },
-          to: { row: 1, column: headers.length },
-        }
-
-        exportRows.forEach((row) => {
-          const data = row.invoiceData || {}
-          worksheet.addRow([
-            row.sourceType,
-            row.id,
-            row.cliente,
-            row.contraparte,
-            data.issue_date || data.issue_date || row.fecha,
-            data.fecha_operacion || data.issue_date || row.fecha,
-            data.serie || "",
-            data.invoice_number || "",
-            data.invoice_number_final || "",
-            data.nif_tipo || "",
-            data.nif_codigo_pais || "ES",
-            data.nif_identificacion || data.supplier_tax_id || "",
-            data.clave_operacion || "01",
-            safeNumber(data.tax_base ?? data.tax_base),
-            safeNumber(data.tax_rate ?? data.tax_rate),
-            safeNumber(data.tax_amount),
-            safeNumber(data.tipo_recargo_equivalencia),
-            safeNumber(data.cuota_recargo_equivalencia),
-            safeNumber(data.total_amount ?? data.total_amount ?? row.doc.amount),
-            row.estado,
-            row.confianza,
-          ])
-        })
-
-        const headerRow = worksheet.getRow(1)
-        headerRow.font = { color: { argb: "FFFFFFFF" }, bold: true }
-        headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_HEADER_FILL } }
-
-        for (let rowIndex = 2; rowIndex <= worksheet.rowCount; rowIndex += 1) {
-          const row = worksheet.getRow(rowIndex)
-          if (rowIndex % 2 === 0) {
-            row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_ZEBRA_FILL } }
+        const fillWorksheet = (sheetName: string, rows: ValidationRow[]) => {
+          const worksheet = workbook.addWorksheet(sheetName)
+          worksheet.addRow(headers)
+          worksheet.views = [{ state: "frozen", ySplit: 1 }]
+          worksheet.autoFilter = {
+            from: { row: 1, column: 1 },
+            to: { row: 1, column: headers.length },
           }
-          row.getCell(5).numFmt = "dd/mm/yyyy"
-          row.getCell(6).numFmt = "dd/mm/yyyy"
-          ;[14, 16, 18, 19].forEach((col) => {
-            row.getCell(col).numFmt = '#,##0.00 "€"'
-            row.getCell(col).alignment = { horizontal: "right" }
+
+          rows.forEach((row) => {
+            const data = row.invoiceData || {}
+            worksheet.addRow([
+              data.issue_date || row.fecha,
+              data.fecha_operacion || data.issue_date || row.fecha,
+              data.serie || "",
+              data.invoice_number || "",
+              data.nif_codigo_pais || "ES",
+              data.nif_identificacion || data.supplier_tax_id || "",
+              data.clave_operacion || "01",
+              safeNumber(data.tax_base),
+              safeNumber(data.tax_rate),
+              safeNumber(data.tax_amount),
+              safeNumber(data.tipo_recargo_equivalencia),
+              safeNumber(data.cuota_recargo_equivalencia),
+              safeNumber(data.total_amount ?? row.doc.amount),
+            ])
+          })
+
+          const headerRow = worksheet.getRow(1)
+          headerRow.font = { color: { argb: "FFFFFFFF" }, bold: true }
+          headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_HEADER_FILL } }
+
+          for (let rowIndex = 2; rowIndex <= worksheet.rowCount; rowIndex += 1) {
+            const row = worksheet.getRow(rowIndex)
+            if (rowIndex % 2 === 0) {
+              row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_ZEBRA_FILL } }
+            }
+            row.getCell(1).numFmt = "dd/mm/yyyy"
+            row.getCell(2).numFmt = "dd/mm/yyyy"
+            ;[8, 10, 12, 13].forEach((col) => {
+              row.getCell(col).numFmt = '#,##0.00 "€"'
+              row.getCell(col).alignment = { horizontal: "right" }
+            })
+            row.getCell(9).numFmt = '0.00"%"'
+            row.getCell(11).numFmt = '0.00"%"'
+          }
+
+          worksheet.columns.forEach((column: { values?: Array<unknown>; width?: number }) => {
+            const maxLength = column.values?.reduce((acc: number, value: unknown) => {
+              const current = value == null ? 0 : value instanceof Date ? 10 : String(value).length
+              return Math.max(acc, current)
+            }, 12) || 12
+            column.width = Math.min(Math.max(maxLength + 2, 12), 34)
           })
         }
 
-        worksheet.columns.forEach((column: any) => {
-          const maxLength = column.values?.reduce((acc: number, value: unknown) => {
-            const current = value == null ? 0 : value instanceof Date ? 10 : String(value).length
-            return Math.max(acc, current)
-          }, 12) || 12
-          column.width = Math.min(Math.max(maxLength + 2, 12), 36)
-        })
+        if (type === "ambas") {
+          fillWorksheet("Facturas Recibidas", processedRecibidas)
+          fillWorksheet("Facturas Emitidas", processedEmitidas)
+        } else if (type === "recibidas") {
+          fillWorksheet("Facturas Recibidas", processedRecibidas)
+        } else {
+          fillWorksheet("Facturas Emitidas", processedEmitidas)
+        }
 
         const buffer = await workbook.xlsx.writeBuffer()
         const blob = new Blob([buffer], {
@@ -600,6 +770,22 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
     })()
   }
 
+  const handleExportExcel = (type: "recibidas" | "emitidas" | "ambas") => {
+    if (!filters.client || filters.client === "all") {
+      toast.error("Para exportar primero debes filtrar un cliente específico")
+      return
+    }
+
+    const hasUnprocessed = selectedClientRows.some((row) => (row.doc.status || "").toLowerCase() !== "procesado")
+    if (hasUnprocessed) {
+      setPendingExportType(type)
+      setShowExportWarning(true)
+      return
+    }
+
+    executeExport(type)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -609,10 +795,16 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
             Validación oficial AEAT para facturas recibidas y emitidas.
           </p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={() => setIsExportOpen(true)}>
-          <FileSpreadsheet className="size-4" />
-          Exportar Excel
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button className="gap-2" onClick={() => setIsUploadOpen(true)}>
+            <Upload className="mr-2 size-4" />
+            Subir Factura
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={() => setIsExportOpen(true)}>
+            <FileSpreadsheet className="size-4" />
+            Exportar Excel
+          </Button>
+        </div>
       </div>
 
       <DocumentFilter
@@ -686,7 +878,6 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Contraparte</TableHead>
                     <TableHead>Estado</TableHead>
@@ -695,10 +886,9 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRecibidas.length > 0 ? (
-                    filteredRecibidas.map((row) => (
+                  {pagedRows.length > 0 ? (
+                    pagedRows.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono text-sm">{row.id}</TableCell>
                         <TableCell className="font-medium">{row.cliente}</TableCell>
                         <TableCell className="max-w-[180px] truncate">{row.contraparte}</TableCell>
                         <TableCell>{row.estado}</TableCell>
@@ -718,10 +908,23 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" onClick={() => openValidation(row)}>
-                            <Eye className="size-3.5 mr-1.5" />
-                            Validar
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openValidation(row)} className="gap-1.5">
+                              <Eye className="size-3.5 mr-1.5" />
+                              Validar
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 px-0">
+                                  <MoreHorizontal className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenInNewTab(row)}>Abrir en pestaña nueva</DropdownMenuItem>
+                                <DropdownMenuItem variant="destructive" onClick={() => handleDeleteDocument(row)}>Eliminar factura</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -734,6 +937,29 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between gap-3 pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {activeRows.length === 0 ? 0 : pageStart + 1}-{Math.min(pageEnd, activeRows.length)} de {activeRows.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
+                    disabled={safeCurrentPage <= 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))}
+                    disabled={safeCurrentPage >= totalPages}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -748,7 +974,6 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Contraparte</TableHead>
                     <TableHead>Estado</TableHead>
@@ -757,10 +982,9 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEmitidas.length > 0 ? (
-                    filteredEmitidas.map((row) => (
+                  {pagedRows.length > 0 ? (
+                    pagedRows.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono text-sm">{row.id}</TableCell>
                         <TableCell className="font-medium">{row.cliente}</TableCell>
                         <TableCell className="max-w-[180px] truncate">{row.contraparte}</TableCell>
                         <TableCell>{row.estado}</TableCell>
@@ -780,10 +1004,23 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" onClick={() => openValidation(row)}>
-                            <Eye className="size-3.5 mr-1.5" />
-                            Validar
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openValidation(row)} className="gap-1.5">
+                              <Eye className="size-3.5 mr-1.5" />
+                              Validar
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 px-0">
+                                  <MoreHorizontal className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenInNewTab(row)}>Abrir en pestaña nueva</DropdownMenuItem>
+                                <DropdownMenuItem variant="destructive" onClick={() => handleDeleteDocument(row)}>Eliminar factura</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -796,6 +1033,29 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between gap-3 pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {activeRows.length === 0 ? 0 : pageStart + 1}-{Math.min(pageEnd, activeRows.length)} de {activeRows.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
+                    disabled={safeCurrentPage <= 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))}
+                    disabled={safeCurrentPage >= totalPages}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -915,33 +1175,18 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
 
                   <Separator className="my-2" />
                   <h5 className="font-medium text-sm">Datos fiscales</h5>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Tipo NIF</Label>
-                      <Select value={editedData.nif_tipo} onValueChange={(value) => setEditedData({ ...editedData, nif_tipo: value })}>
-                        <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="NIF">NIF</SelectItem>
-                          <SelectItem value="CIF">CIF</SelectItem>
-                          <SelectItem value="NIE">NIE</SelectItem>
-                          <SelectItem value="PASAPORTE">Pasaporte</SelectItem>
-                          <SelectItem value="IVA">IVA</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Clave Operación</Label>
-                      <Select value={editedData.clave_operacion} onValueChange={(value) => setEditedData({ ...editedData, clave_operacion: value })}>
-                        <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="01">01 - General</SelectItem>
-                          <SelectItem value="02">02 - Exportación</SelectItem>
-                          <SelectItem value="03">03 - Intracomunitaria</SelectItem>
-                          <SelectItem value="04">04 - Exenta</SelectItem>
-                          <SelectItem value="05">05 - Inversión SP</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm">Clave Operación</Label>
+                    <Select value={editedData.clave_operacion} onValueChange={(value) => setEditedData({ ...editedData, clave_operacion: value })}>
+                      <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="01">01 - General</SelectItem>
+                        <SelectItem value="02">02 - Exportación</SelectItem>
+                        <SelectItem value="03">03 - Intracomunitaria</SelectItem>
+                        <SelectItem value="04">04 - Exenta</SelectItem>
+                        <SelectItem value="05">05 - Inversión SP</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
@@ -1045,6 +1290,96 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="size-5" />
+              Subir factura para cliente
+            </DialogTitle>
+            <DialogDescription>
+              Selecciona el archivo y el cliente al que pertenece. El OCR seguirá el flujo normal del sistema.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4 py-2" onSubmit={handleUploadDocument}>
+            <div className="space-y-2">
+              <Label htmlFor="upload-file">Archivo</Label>
+              <Input
+                id="upload-file"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.gif"
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setUploadFile(event.target.files?.[0] || null)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de factura</Label>
+              <Select value={uploadDocType} onValueChange={setUploadDocType}>
+                <SelectTrigger className="h-10 text-sm">
+                  <SelectValue placeholder="Selecciona el tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Selecciona el tipo</SelectItem>
+                  <SelectItem value="Recibida">Recibida</SelectItem>
+                  <SelectItem value="Emitida">Emitida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cliente</Label>
+              <Select value={uploadBusinessId} onValueChange={setUploadBusinessId}>
+                <SelectTrigger className="h-10 text-sm">
+                  <SelectValue placeholder="Selecciona un cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Selecciona un cliente</SelectItem>
+                  {uploadBusinessOptions.map((business) => (
+                    <SelectItem key={business.id} value={business.id}>
+                      {business.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isUploading}>
+                {isUploading ? "Subiendo..." : "Subir"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showExportWarning} onOpenChange={setShowExportWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Facturas sin procesar detectadas</AlertDialogTitle>
+            <AlertDialogDescription>
+              El cliente seleccionado tiene facturas pendientes de validar o en cola. Estas facturas no se incluirán o tendrán datos incompletos en el Excel. ¿Deseas exportar de todos modos?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowExportWarning(false)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const nextType = pendingExportType || "ambas"
+                setShowExportWarning(false)
+                setPendingExportType(null)
+                executeExport(nextType)
+              }}
+            >
+              Sí, exportar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1076,7 +1411,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
               <FileSpreadsheet className="size-5" />
               <div className="text-left">
                 <p className="font-medium">Exportar Ambas</p>
-                <p className="text-xs text-muted-foreground/80">
+                <p className="text-xs text-white">
                   {filteredRecibidas.length + filteredEmitidas.length} documentos en total
                 </p>
               </div>
