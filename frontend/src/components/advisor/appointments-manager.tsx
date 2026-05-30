@@ -43,6 +43,19 @@ type Appointment = {
   status: AppointmentStatus
 }
 
+type AppointmentApiRow = {
+  id: string | number
+  client_name?: string
+  client?: string
+  business_name?: string
+  appointment_type?: string
+  type?: string
+  scheduled_at?: string
+  date?: string
+  datetime?: string
+  status?: string
+}
+
 function normalizeStatus(status: string | undefined): AppointmentStatus {
   const normalized = status?.toLowerCase()
   if (["confirmed", "confirmada", "confirmado", "aceptada", "accepted"].includes(normalized || "")) {
@@ -57,6 +70,14 @@ function normalizeStatus(status: string | undefined): AppointmentStatus {
 type Slot = { start: string; end: string }
 type DaySchedule = { enabled?: boolean; slots?: Slot[] }
 type WorkSchedule = Record<string, DaySchedule>
+type CurrentUser = {
+  id?: string
+  first_name?: string
+  email?: string
+  work_start?: string | null
+  work_end?: string | null
+  work_schedule?: WorkSchedule
+}
 
 function parseMinutes(value: string | null | undefined) {
   if (!value) return null
@@ -93,14 +114,34 @@ function buildDateFromParts(date: Date, time: string) {
   return next
 }
 
+function getCurrentTimestamp() {
+  return Date.now()
+}
+
+function formatLocalIsoWithOffset(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const year = d.getFullYear()
+  const month = pad(d.getMonth() + 1)
+  const day = pad(d.getDate())
+  const hours = pad(d.getHours())
+  const minutes = pad(d.getMinutes())
+  const seconds = pad(d.getSeconds())
+  const tzOffsetMin = -d.getTimezoneOffset()
+  const sign = tzOffsetMin >= 0 ? "+" : "-"
+  const absMin = Math.abs(tzOffsetMin)
+  const tzHours = pad(Math.floor(absMin / 60))
+  const tzMins = pad(absMin % 60)
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${tzHours}:${tzMins}`
+}
+
 export function AppointmentsManager({
   appointments = [],
   currentUser,
   businessId,
   onNavigateToSettings,
 }: {
-  appointments?: any[]
-  currentUser?: { id?: string; first_name?: string; email?: string } | null
+  appointments?: AppointmentApiRow[]
+  currentUser?: CurrentUser | null
   businessId?: string
   onNavigateToSettings: () => void
 }) {
@@ -119,20 +160,21 @@ export function AppointmentsManager({
   const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined)
   const [rescheduleTime, setRescheduleTime] = useState("")
   const [isRescheduling, setIsRescheduling] = useState(false)
-  const [workStart, setWorkStart] = useState<string | null>(null)
-  const [workEnd, setWorkEnd] = useState<string | null>(null)
-  const [workSchedule, setWorkSchedule] = useState<WorkSchedule>({})
   const [rescheduleWarningAccepted, setRescheduleWarningAccepted] = useState(false)
 
-  const { data: fetchedAppointments = [], mutate: mutateAppointments } = useApiData<any[]>(
+  const { data: fetchedAppointments = [], mutate: mutateAppointments } = useApiData<AppointmentApiRow[]>(
     "/api/business/appointments/",
     { dedupingInterval: 5000 }
   )
 
-  const { data: fetchedUser } = useApiData<any>("/api/users/me/")
+  const { data: fetchedUser } = useApiData<CurrentUser>("/api/users/me/")
 
   const activeAppointments = appointments.length > 0 ? appointments : fetchedAppointments
   const activeUser = currentUser || fetchedUser
+  const workStart = activeUser?.work_start || null
+  const workEnd = activeUser?.work_end || null
+  const workSchedule = activeUser?.work_schedule && typeof activeUser.work_schedule === "object" ? activeUser.work_schedule : {}
+  const now = new Date()
 
   useEffect(() => {
     const handleRefresh = () => {
@@ -145,13 +187,6 @@ export function AppointmentsManager({
       window.removeEventListener("consultoritas:refresh", handleRefresh)
     }
   }, [mutateAppointments])
-
-  useEffect(() => {
-    if (!fetchedUser) return
-    setWorkStart(fetchedUser.work_start || null)
-    setWorkEnd(fetchedUser.work_end || null)
-    setWorkSchedule((fetchedUser.work_schedule && typeof fetchedUser.work_schedule === "object") ? fetchedUser.work_schedule : {})
-  }, [fetchedUser])
 
   const parsedAppointments: Appointment[] = activeAppointments
     .map((raw) => {
@@ -170,9 +205,14 @@ export function AppointmentsManager({
     })
     .filter((item): item is Appointment => item !== null)
 
-  const selectedDayAppointments = parsedAppointments.filter(app =>
-    app.date.toDateString() === date?.toDateString()
-  )
+  const selectedDayAppointments = parsedAppointments.filter((app) => app.date.toDateString() === date?.toDateString())
+
+  const meetingDays = parsedAppointments.map((app) => app.date)
+  const pendingMeetingDays = parsedAppointments.filter((app) => app.status === "pending").map((app) => app.date)
+  const upcomingAppointments = [...parsedAppointments]
+    .filter((app) => app.date.getTime() > now.getTime())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, 12)
 
   const mutateAppointment = async (appointmentId: string, payload?: Record<string, unknown>, method: "PATCH" | "DELETE" = "PATCH") => {
     const response = await apiFetch(`/api/business/appointments/${appointmentId}/`, {
@@ -230,7 +270,7 @@ export function AppointmentsManager({
       const scheduled = new Date(rescheduleDate)
       scheduled.setHours(h, m, 0, 0)
 
-      if (scheduled.getTime() <= Date.now()) {
+      if (scheduled.getTime() <= getCurrentTimestamp()) {
         toast.error("No puedes reprogramar una cita a una fecha u hora pasada")
         return
       }
@@ -253,7 +293,7 @@ export function AppointmentsManager({
       }
 
       await mutateAppointment(rescheduleAppointment.id, {
-        scheduled_at: scheduled.toISOString(),
+        scheduled_at: formatLocalIsoWithOffset(scheduled),
         force_out_of_hours: forceOutOfHours,
       })
       toast.success("Cita reprogramada")
@@ -283,6 +323,16 @@ export function AppointmentsManager({
 
     setIsCreating(true)
     try {
+      let scheduledAt: string | null = null
+      if (manualAppointment.date && manualAppointment.time) {
+        const parts = manualAppointment.date.split("-").map((x) => Number(x))
+        if (parts.length === 3) {
+          const d = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1)
+          const scheduled = buildDateFromParts(d, manualAppointment.time)
+          scheduledAt = formatLocalIsoWithOffset(scheduled)
+        }
+      }
+
       const response = await apiFetch("/api/business/appointments/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -292,8 +342,7 @@ export function AppointmentsManager({
           client_name: manualAppointment.client_name,
           client_email: manualAppointment.client_email,
           appointment_type: manualAppointment.appointment_type,
-          date: manualAppointment.date,
-          time: manualAppointment.time,
+          scheduled_at: scheduledAt,
         }),
       })
 
@@ -353,6 +402,14 @@ export function AppointmentsManager({
               mode="single"
               selected={date}
               onSelect={setDate}
+              modifiers={{
+                meeting: meetingDays,
+                pendingMeeting: pendingMeetingDays,
+              }}
+              modifiersClassNames={{
+                meeting: "bg-sky-100 text-sky-700 font-semibold",
+                pendingMeeting: "bg-amber-100 text-amber-700 font-semibold",
+              }}
               className="rounded-md border-0"
               classNames={{
                 day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
@@ -360,6 +417,10 @@ export function AppointmentsManager({
               }}
             />
           </CardContent>
+          <div className="px-4 pb-4 text-xs text-muted-foreground flex items-center gap-3">
+            <span className="inline-flex items-center gap-1"><span className="size-2 rounded-full bg-sky-500" /> Días con cita</span>
+            <span className="inline-flex items-center gap-1"><span className="size-2 rounded-full bg-amber-500" /> Pendientes</span>
+          </div>
         </Card>
 
         {/* Agenda del Día */}
@@ -405,21 +466,43 @@ export function AppointmentsManager({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="hidden group-hover:flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="size-8 text-slate-500" onClick={() => handleRescheduleAppointment(app)}><Edit2 className="size-4" /></Button>
-                        <Button variant="ghost" size="icon" className="size-8 text-rose-500" onClick={() => handleDeleteAppointment(app.id)}><Trash2 className="size-4" /></Button>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-8"><MoreHorizontal className="size-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleConfirmAppointment(app.id)}>Confirmar asistencia</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAppointment(app.id)}>Cancelar Cita</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                    {(() => {
+                      const isPastAppointment = app.date.getTime() < now.getTime()
+
+                      return (
+                        <div className="flex items-center gap-2">
+                          <div className="hidden group-hover:flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-slate-500"
+                              onClick={() => handleRescheduleAppointment(app)}
+                              disabled={isPastAppointment}
+                            >
+                              <Edit2 className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-rose-500"
+                              onClick={() => handleDeleteAppointment(app.id)}
+                              disabled={isPastAppointment}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="size-8"><MoreHorizontal className="size-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleConfirmAppointment(app.id)}>Confirmar asistencia</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAppointment(app.id)} disabled={isPastAppointment}>Cancelar Cita</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )
+                    })()}
                   </div>
                 ))}
               </div>
@@ -567,6 +650,33 @@ export function AppointmentsManager({
           </div>
         </Card>
       </div>
+
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Próximas Citas</CardTitle>
+          <CardDescription>Lista continua con los próximos compromisos del despacho.</CardDescription>
+        </CardHeader>
+        <CardContent className="max-h-[280px] overflow-y-auto">
+          {upcomingAppointments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay citas próximas registradas.</p>
+          ) : (
+            <div className="space-y-2">
+              {upcomingAppointments.map((app) => (
+                <div key={`upcoming-${app.id}`} className="rounded-md border p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-sm">{app.client}</p>
+                    <p className="text-xs text-muted-foreground">{app.type}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{app.date.toLocaleDateString("es-ES")}</p>
+                    <p className="text-xs text-muted-foreground">{app.date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

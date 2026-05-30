@@ -47,6 +47,7 @@ interface Advisor {
   initials: string
   color: string
   isPartner: boolean
+  is_on_vacation: boolean
   specialties: string[]
 }
 
@@ -100,6 +101,22 @@ const advisoryTypes = [
   },
 ]
 
+function formatLocalIsoWithOffset(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  const seconds = pad(date.getSeconds())
+  const tzOffsetMin = -date.getTimezoneOffset()
+  const sign = tzOffsetMin >= 0 ? "+" : "-"
+  const absOffset = Math.abs(tzOffsetMin)
+  const offsetHours = pad(Math.floor(absOffset / 60))
+  const offsetMinutes = pad(absOffset % 60)
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offsetHours}:${offsetMinutes}`
+}
+
 export function AppointmentModal({
   open,
   onOpenChange,
@@ -133,6 +150,7 @@ export function AppointmentModal({
               initials: u.first_name ? u.first_name[0] : u.email[0].toUpperCase(),
               color: "bg-[#173d77]/10 text-[#173d77]",
               isPartner: Boolean(u.is_staff),
+              is_on_vacation: Boolean(u.is_on_vacation),
               specialties: Array.isArray(u.specialties) && u.specialties.length > 0
                 ? u.specialties
                 : ALL_SPECIALTIES,
@@ -166,7 +184,7 @@ export function AppointmentModal({
   }
 
   // Get available advisors based on selected type
-  const getAvailableAdvisors = () => {
+  const getMatchingAdvisors = () => {
     if (!selectedType) return []
 
     if (selectedType === "general") {
@@ -176,6 +194,8 @@ export function AppointmentModal({
 
     return activeAdvisors.filter(a => a.specialties.includes(selectedType))
   }
+
+  const getAvailableAdvisors = () => getMatchingAdvisors().filter((advisor) => !advisor.is_on_vacation)
 
   const generateAvailableDates = () => {
     const dates: Date[] = []
@@ -196,6 +216,8 @@ export function AppointmentModal({
 
   // Step 2: Select advisor
   const handleAdvisorSelect = (advisorId: string) => {
+    const advisor = activeAdvisors.find((item) => item.id === advisorId)
+    if (advisor?.is_on_vacation) return
     setSelectedAdvisor(advisorId)
     setSelectedDate(null)
     setSelectedTime(null)
@@ -421,33 +443,49 @@ export function AppointmentModal({
               )}
 
               {/* Available advisors */}
-              {getAvailableAdvisors().map((advisor) => (
-                <Card
-                  key={advisor.id}
-                  className="cursor-pointer border border-slate-200 transition-all hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]"
-                  onClick={() => handleAdvisorSelect(advisor.id)}
-                >
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className={`text-sm font-semibold ${advisor.color}`}>
-                        {advisor.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-foreground">{advisor.name}</h4>
-                        {advisor.isPartner && (
-                          <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
-                            Socio
-                          </Badge>
-                        )}
+              {getMatchingAdvisors().map((advisor) => {
+                const isUnavailable = advisor.is_on_vacation
+
+                return (
+                  <Card
+                    key={advisor.id}
+                    className={cn(
+                      "border border-slate-200 transition-all",
+                      isUnavailable
+                        ? "cursor-not-allowed opacity-60"
+                        : "cursor-pointer hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]",
+                    )}
+                    onClick={() => {
+                      if (!isUnavailable) handleAdvisorSelect(advisor.id)
+                    }}
+                  >
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className={`text-sm font-semibold ${advisor.color}`}>
+                          {advisor.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-semibold text-foreground">{advisor.name}</h4>
+                          {advisor.isPartner && (
+                            <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
+                              Socio
+                            </Badge>
+                          )}
+                          {isUnavailable && (
+                            <Badge variant="outline" className="text-xs border-slate-200 bg-slate-100 text-slate-500">
+                              No disponible (Vacaciones)
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{advisor.role}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{advisor.role}</p>
-                    </div>
-                    <ChevronRight className="size-5 text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              ))}
+                      <ChevronRight className="size-5 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           </div>
         )}
@@ -661,8 +699,7 @@ export function AppointmentModal({
                                 appointment_type: selectedTypeData?.title || "General",
                                 client_name: name,
                                 client_email: email,
-                                date: selectedDate ? selectedDate.toISOString().slice(0, 10) : undefined,
-                                time: selectedTime,
+                                scheduled_at: formatLocalIsoWithOffset(scheduled),
                               }),
                             })
                           if (res.ok) {

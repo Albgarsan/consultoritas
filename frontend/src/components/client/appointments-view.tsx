@@ -67,6 +67,22 @@ function statusLabel(status: AppointmentStatus) {
   return { label: "Pendiente", className: "bg-amber-500/10 text-amber-600 border-0" }
 }
 
+function formatLocalIsoWithOffset(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  const seconds = pad(date.getSeconds())
+  const tzOffsetMin = -date.getTimezoneOffset()
+  const sign = tzOffsetMin >= 0 ? "+" : "-"
+  const absOffset = Math.abs(tzOffsetMin)
+  const offsetHours = pad(Math.floor(absOffset / 60))
+  const offsetMinutes = pad(absOffset % 60)
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offsetHours}:${offsetMinutes}`
+}
+
 export function ClientAppointmentsView({
   appointments = [],
   user,
@@ -249,7 +265,7 @@ export function ClientAppointmentsView({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scheduled_at: scheduled.toISOString(),
+          scheduled_at: formatLocalIsoWithOffset(scheduled),
         }),
       })
 

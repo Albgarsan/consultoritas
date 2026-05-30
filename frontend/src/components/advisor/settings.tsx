@@ -84,7 +84,7 @@ export function AdvisorSettings() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   // Estados para datos reales (Backend)
-  const [userData, setUserData] = useState({ first_name: "", last_name: "", email: "", work_start: "", work_end: "", profile_image: "" })
+  const [userData, setUserData] = useState({ first_name: "", last_name: "", email: "", work_start: "", work_end: "", profile_image: "", is_on_vacation: false })
   const [specialties, setSpecialties] = useState<string[]>([])
   const [workSchedule, setWorkSchedule] = useState<WorkSchedule>(() => normalizeSchedule(null))
   const [passwordData, setPasswordData] = useState({ current_password: "", new_password: "", confirm_password: "" })
@@ -103,6 +103,7 @@ export function AdvisorSettings() {
           work_start: data.work_start || "",
           work_end: data.work_end || "",
           profile_image: data.profile_image || "",
+          is_on_vacation: Boolean(data.is_on_vacation),
         })
         setWorkSchedule(normalizeSchedule(data.work_schedule))
         setSpecialties(Array.isArray(data.specialties) ? data.specialties : [])
@@ -160,12 +161,18 @@ export function AdvisorSettings() {
           work_start: firstSlot.start || null,
           work_end: firstSlot.end || null,
           work_schedule: workSchedule,
+          is_on_vacation: userData.is_on_vacation,
         }),
       })
       if (!response.ok) throw new Error()
       const updated = await response.json().catch(() => null)
       if (updated) {
-        setUserData((cur) => ({ ...cur, work_start: updated.work_start || "", work_end: updated.work_end || "" }))
+        setUserData((cur) => ({
+          ...cur,
+          work_start: updated.work_start || "",
+          work_end: updated.work_end || "",
+          is_on_vacation: Boolean(updated.is_on_vacation),
+        }))
         setWorkSchedule(normalizeSchedule(updated.work_schedule))
       }
       toast.success("Perfil y especialidades actualizados")
@@ -577,7 +584,10 @@ export function AdvisorSettings() {
                   <p className="text-sm font-bold text-slate-900 uppercase tracking-tighter">Modo Vacaciones</p>
                   <p className="text-xs text-muted-foreground">Desactivar temporalmente el calendario de reservas.</p>
                 </div>
-                <Switch />
+                <Switch
+                  checked={userData.is_on_vacation}
+                  onCheckedChange={(checked) => setUserData((current) => ({ ...current, is_on_vacation: checked }))}
+                />
               </div>
             </CardContent>
           </Card>
