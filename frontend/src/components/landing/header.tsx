@@ -105,7 +105,10 @@ export function Header({ onNavigate, onAccessClick }: HeaderProps) {
                 </button>
               ))}
               <Button
-                onClick={onAccessClick}
+                onClick={() => {
+                  onAccessClick();
+                  setMobileOpen(false);
+                }}
                 className="mt-2 w-full rounded-xl bg-[#173d77] text-white hover:bg-[#1a4a92]"
               >
                 Acceso Portal

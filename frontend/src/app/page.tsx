@@ -117,7 +117,7 @@ export default function LandingPage() {
               Calle Dr. González Caraballo, 1, planta 1 - modulo 19<br/>
               41020 Sevilla
             </p>
-            <p className="text-sm text-white font-medium hover:text-blue-300 transition-colors">info@consultoritas.es</p>
+            <a href="mailto:info@consultoritas.es" className="text-sm text-white font-medium hover:text-blue-300 transition-colors">info@consultoritas.es</a>
           </div>
         </div>
 

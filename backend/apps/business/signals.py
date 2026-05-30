@@ -194,7 +194,13 @@ def ensure_business_tax_calendar(business, owner_user=None):
         business=business,
         is_presented=False,
         deadline__gte=today,
-    ).exclude(tax_type__in=required_models).delete()
+    ).filter(
+        models.Q(notes="")
+        | models.Q(notes__isnull=True)
+        | models.Q(notes__startswith="Modelo"),
+    ).exclude(
+        tax_type__in=required_models
+    ).delete()
 
     if not period_definitions:
         return

@@ -90,22 +90,24 @@ export function ContactSection() {
                   ✅ BUG FIX: botón WhatsApp ahora usa fondo BLANCO con texto azul
                   (antes era bg-[#173d77] sobre bg-[#173d77] = invisible)
                 */}
-                <button
-                  onClick={() => window.open('https://wa.me/34954123456', '_blank')}
+                <a
+                  href="https://wa.me/34954123456"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-[0.85rem] bg-white text-sm font-semibold text-[#173d77] shadow-[0_12px_30px_-18px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-slate-50 hover:shadow-[0_14px_34px_-18px_rgba(0,0,0,0.4)]"
                 >
                   <MessageSquare className="size-4" strokeWidth={2} />
                   WhatsApp Directo
-                </button>
+                </a>
 
                 {/* Botón email: outline sobre fondo azul */}
-                <button
-                  onClick={() => { window.location.href = 'mailto:info@consultoritas.es'; }}
+                <a
+                  href="mailto:info@consultoritas.es"
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-[0.85rem] border border-white/22 text-sm text-white transition-colors hover:bg-white/8"
                 >
                   <Mail className="size-4" strokeWidth={1.5} />
                   Enviar Documentación
-                </button>
+                </a>
               </div>
             </div>
 

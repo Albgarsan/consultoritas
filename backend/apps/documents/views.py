@@ -405,4 +405,11 @@ class TaxCalendarViewSet(viewsets.ModelViewSet):
             )
             return
 
+        if is_presented is False and instance.is_presented:
+            serializer.save(
+                presented_by=None,
+                presented_date=None,
+            )
+            return
+
         serializer.save()

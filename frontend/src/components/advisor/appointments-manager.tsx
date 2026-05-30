@@ -190,7 +190,12 @@ export function AppointmentsManager({
 
   const parsedAppointments: Appointment[] = activeAppointments
     .map((raw) => {
-      const appointmentDate = new Date(raw.scheduled_at || raw.date || raw.datetime)
+      const appointmentSource = raw.scheduled_at || raw.date || raw.datetime
+      if (!appointmentSource) {
+        return null
+      }
+
+      const appointmentDate = new Date(appointmentSource)
       if (Number.isNaN(appointmentDate.getTime())) {
         return null
       }

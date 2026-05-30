@@ -72,11 +72,33 @@ function filingQuarterForToday(today: Date): { quarter: QuarterKey; year: number
   const day = today.getDate()
   const inWindowMonth = month === 1 || month === 4 || month === 7 || month === 10
 
-  if (inWindowMonth && day <= 20) {
-    if (month === 1) return { quarter: "Q4", year: today.getFullYear() - 1, windowOpen: true }
-    if (month === 4) return { quarter: "Q1", year: today.getFullYear(), windowOpen: true }
-    if (month === 7) return { quarter: "Q2", year: today.getFullYear(), windowOpen: true }
-    return { quarter: "Q3", year: today.getFullYear(), windowOpen: true }
+  if (inWindowMonth) {
+    if (month === 1) {
+      return {
+        quarter: "Q4",
+        year: today.getFullYear() - 1,
+        windowOpen: day <= 20,
+      }
+    }
+    if (month === 4) {
+      return {
+        quarter: "Q1",
+        year: today.getFullYear(),
+        windowOpen: day <= 20,
+      }
+    }
+    if (month === 7) {
+      return {
+        quarter: "Q2",
+        year: today.getFullYear(),
+        windowOpen: day <= 20,
+      }
+    }
+    return {
+      quarter: "Q3",
+      year: today.getFullYear(),
+      windowOpen: day <= 20,
+    }
   }
 
   return { quarter: quarterFromDate(today), year: today.getFullYear(), windowOpen: false }

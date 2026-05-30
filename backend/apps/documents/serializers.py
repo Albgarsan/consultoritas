@@ -142,4 +142,8 @@ class DocumentSerializer(serializers.ModelSerializer):
         validated_data.setdefault("storage_path", storage_name)
         validated_data.setdefault("status", "En cola")
         validated_data.setdefault("doc_type", "Factura")
-        return super().create(validated_data)
+        try:
+            return super().create(validated_data)
+        except Exception:
+            default_storage.delete(storage_name)
+            raise
