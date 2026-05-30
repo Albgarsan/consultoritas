@@ -6,7 +6,6 @@ import os
 
 import google.generativeai as genai
 import requests
-from django.conf import settings
 from django.core.files.storage import default_storage
 
 from .models import Document, InvoiceData
@@ -97,7 +96,7 @@ class OCRService:
                 currency=data.get("currency") or "EUR",
             )
 
-            document.status = "Procesado"
+            document.status = "Pendiente"
             document.save()
             return invoice_data
 

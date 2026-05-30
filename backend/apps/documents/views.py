@@ -3,15 +3,15 @@ import os
 
 from apps.business.models import Business
 from apps.users.models import User
-from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import FileResponse
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -22,6 +22,7 @@ from .serializers import (
     InvoiceDataSerializer,
     TaxCalendarSerializer,
 )
+from .tasks import process_document_ocr as process_document_ocr_task
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +60,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
 
-        business_id = self.request.data.get("business_id") or self.request.data.get(
-            "business"
+        business_id = self.request.data.get("business") or self.request.data.get(
+            "business_id"
         )
-        assigned_user_id = self.request.data.get("assigned_user_id")
+        doc_type = self.request.data.get("doc_type") or "Factura"
         user_businesses = Business.objects.filter(users__user=self.request.user)
 
         if not user_businesses.exists():
@@ -81,27 +82,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 )
             business = user_businesses.first()
 
-        # Advisors can create invoices on behalf of a client and must explicitly assign one.
-        target_user = self.request.user
         if getattr(self.request.user, "role", None) == "Asesor":
-            if not assigned_user_id:
-                raise ValidationError(
-                    "Debes seleccionar un cliente para asignar la factura."
-                )
+            target_user = self.request.user
+        else:
+            target_user = self.request.user
 
-            target_user = (
-                User.objects.filter(pk=assigned_user_id).exclude(role="Asesor").first()
-            )
-            if not target_user:
-                raise ValidationError("Cliente asignado no válido.")
+        document = serializer.save(
+            business=business,
+            uploaded_by=target_user,
+            status="En cola",
+            doc_type=doc_type,
+        )
 
-            belongs_to_business = business.users.filter(user=target_user).exists()
-            if not belongs_to_business:
-                raise ValidationError(
-                    "El cliente seleccionado no pertenece al negocio indicado."
-                )
-
-        document = serializer.save(business=business, uploaded_by=target_user)
+        process_document_ocr_task.delay(document.id)
 
     def destroy(self, request, *args, **kwargs):
         # Allow standard destroy but ensure storage cleanup via perform_destroy
@@ -333,12 +326,31 @@ class TaxCalendarViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        if self.request.user.role == "Asesor":
-            return TaxCalendar.objects.all().select_related("business")
+        year = self.request.query_params.get("year")
+        try:
+            year_value = int(year) if year else None
+        except (TypeError, ValueError):
+            year_value = None
 
-        return TaxCalendar.objects.filter(
-            business__users__user=self.request.user
-        ).select_related("business")
+        if self.request.user.role == "Asesor":
+            queryset = TaxCalendar.objects.all().select_related(
+                "business", "business__responsible_advisor", "presented_by"
+            )
+        else:
+            queryset = TaxCalendar.objects.filter(
+                business__users__user=self.request.user
+            ).select_related(
+                "business", "business__responsible_advisor", "presented_by"
+            )
+
+        business_id = self.request.query_params.get("business_id")
+        if business_id:
+            queryset = queryset.filter(business_id=business_id)
+
+        if year_value is not None:
+            queryset = queryset.filter(period_start__year=year_value)
+
+        return queryset
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
@@ -375,3 +387,22 @@ class TaxCalendarViewSet(viewsets.ModelViewSet):
                 )
 
         serializer.save(business=business)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        is_presented = serializer.validated_data.get("is_presented")
+
+        if is_presented and not instance.is_presented:
+            responsible_advisor = getattr(
+                instance.business, "responsible_advisor", None
+            )
+            if responsible_advisor is None or self.request.user != responsible_advisor:
+                raise PermissionDenied("Solo el responsable puede marcar este modelo")
+
+            serializer.save(
+                presented_by=self.request.user,
+                presented_date=timezone.now(),
+            )
+            return
+
+        serializer.save()

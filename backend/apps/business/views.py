@@ -24,6 +24,9 @@ class BusinessViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         now = timezone.now().date()
+        in_window = now.month in {1, 4, 7, 10} and 1 <= now.day <= 20
+        window_start = now.replace(day=1)
+        window_end = now.replace(day=20)
         queryset = (
             Business.objects.annotate(
                 overdue_tax_items=Count(
@@ -33,8 +36,23 @@ class BusinessViewSet(viewsets.ModelViewSet):
                         tax_calendar__deadline__lt=now,
                     ),
                 ),
+                pending_window_items=Count(
+                    "tax_calendar",
+                    filter=Q(
+                        tax_calendar__is_presented=False,
+                        tax_calendar__deadline__gte=window_start,
+                        tax_calendar__deadline__lte=window_end,
+                    ),
+                ),
                 tax_status_calculated=Case(
-                    When(overdue_tax_items__gt=0, then=Value("INCIDENCIA")),
+                    When(
+                        (
+                            Q(pending_window_items__gt=0)
+                            if in_window
+                            else Q(pk__isnull=True)
+                        ),
+                        then=Value("INCIDENCIA"),
+                    ),
                     default=Value("AL DÍA"),
                     output_field=CharField(),
                 ),

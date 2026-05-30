@@ -10,6 +10,14 @@ from .models import Appointment, Business, UserBusiness
 
 class BusinessSerializer(serializers.ModelSerializer):
     tax_status = serializers.SerializerMethodField()
+    responsible_advisor = UserSerializer(read_only=True)
+    responsible_advisor_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role="Asesor"),
+        source="responsible_advisor",
+        required=False,
+        allow_null=True,
+    )
+    responsible_advisor_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Business
@@ -17,6 +25,17 @@ class BusinessSerializer(serializers.ModelSerializer):
 
     def get_tax_status(self, obj):
         return getattr(obj, "tax_status_calculated", obj.tax_status)
+
+    def get_responsible_advisor_name(self, obj):
+        advisor = getattr(obj, "responsible_advisor", None)
+        if not advisor:
+            return None
+        full_name = advisor.get_full_name().strip()
+        return full_name or advisor.email
+
+    def get_responsible_advisor_id(self, obj):
+        advisor = getattr(obj, "responsible_advisor", None)
+        return str(advisor.id) if advisor else None
 
 
 class UserBusinessSerializer(serializers.ModelSerializer):
@@ -125,6 +144,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
         )
 
         if scheduled_at and advisor:
+            if getattr(advisor, "is_on_vacation", False):
+                raise serializers.ValidationError(
+                    {"advisor_id": "El asesor está de vacaciones"}
+                )
+
             # Treat each appointment as a 60-minute block and reject any overlap.
             start_window = scheduled_at - timedelta(hours=1)
             end_window = scheduled_at + timedelta(hours=1)

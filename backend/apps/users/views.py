@@ -67,6 +67,22 @@ class UserViewSet(viewsets.ModelViewSet):
             ),
         )
 
+        role_filter = self.request.query_params.get("role")
+        is_staff_filter = self.request.query_params.get("is_staff")
+        if role_filter is not None or is_staff_filter is not None:
+            queryset = User.objects.filter(role="Asesor")
+            if role_filter and role_filter != "Asesor":
+                queryset = queryset.filter(role=role_filter)
+
+            if is_staff_filter is not None:
+                normalized_staff = str(is_staff_filter).strip().lower()
+                if normalized_staff in {"1", "true", "yes"}:
+                    queryset = queryset.filter(is_staff=True)
+                elif normalized_staff in {"0", "false", "no"}:
+                    queryset = queryset.filter(is_staff=False)
+
+            return queryset.prefetch_related(business_prefetch).distinct()
+
         if self.request.user.role == "Asesor":
             return (
                 User.objects.filter(

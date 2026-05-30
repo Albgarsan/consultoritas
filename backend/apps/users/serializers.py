@@ -75,6 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "is_staff",
             "is_active",
+            "is_on_vacation",
             "is_principal",
             "specialties",
             "password",
