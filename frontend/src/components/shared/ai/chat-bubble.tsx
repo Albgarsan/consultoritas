@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import type { KeyboardEvent } from "react"
 import { Sparkles, Send, X, Minimize2, Maximize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,14 +16,7 @@ interface Message {
   timestamp: Date
 }
 
-const initialMessages: Message[] = [
-  {
-    id: "1",
-    role: "assistant",
-    content: "Hola, soy tu Consultor IA. Estoy aquí para ayudarte con cualquier duda sobre tus impuestos, documentos o situación fiscal. ¿En qué puedo asistirte hoy?",
-    timestamp: new Date(),
-  },
-]
+const initialMessages: Message[] = []
 
 export function AIChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
@@ -49,38 +43,26 @@ export function AIChatWidget() {
     if (!input.trim()) return
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: "user",
       content: input,
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsTyping(true)
-
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "He revisado tu documentación fiscal. Para el IVA del primer trimestre, tienes un saldo a pagar de 3.245,80€. Recuerda que el plazo de presentación termina el 20 de abril.",
-        "Según los documentos que has subido, tus gastos deducibles este trimestre son correctos. Te recomiendo guardar todas las facturas de suministros y material de oficina.",
-        "Tu estimación de IRPF anual está basada en los ingresos declarados hasta ahora. Si tienes previsto algún cambio significativo en tu facturación, podemos ajustar las previsiones.",
-        "He detectado una factura pendiente de clasificar. ¿Corresponde a un gasto de operaciones corrientes o a una inversión en activo fijo?",
-      ]
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      {
+        id: crypto.randomUUID(),
         role: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: "Este asistente todavía no está conectado a la base de conocimiento real.",
         timestamp: new Date(),
-      }
-
-      setIsTyping(false)
-      setMessages((prev) => [...prev, assistantMessage])
-    }, 1500)
+      },
+    ])
+    setInput("")
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -125,6 +107,7 @@ export function AIChatWidget() {
             size="icon"
             className="size-7 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/10"
             onClick={() => setIsMinimized(!isMinimized)}
+            aria-label={isMinimized ? "Expandir chat" : "Minimizar chat"}
           >
             {isMinimized ? <Maximize2 className="size-4" /> : <Minimize2 className="size-4" />}
           </Button>
@@ -133,6 +116,7 @@ export function AIChatWidget() {
             size="icon"
             className="size-7 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/10"
             onClick={() => setIsOpen(false)}
+            aria-label="Cerrar chat"
           >
             <X className="size-4" />
           </Button>
@@ -212,8 +196,9 @@ export function AIChatWidget() {
               <Button
                 size="icon"
                 onClick={handleSend}
-                disabled={!input.trim() || isTyping}
+                disabled={!input.trim()}
                 className="shrink-0 bg-primary hover:bg-primary/90"
+                aria-label="Enviar mensaje"
               >
                 <Send className="size-4" />
               </Button>

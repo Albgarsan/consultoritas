@@ -1,75 +1,153 @@
 'use client';
-import { motion } from 'framer-motion';
-import { MapPin, Mail, MessageCircle, Phone, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+
+import { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { MapPin, Mail, MessageSquare, Clock, ExternalLink } from 'lucide-react';
 
 export function ContactSection() {
-  const handleWhatsApp = () => window.open("https://wa.me/34954123456", "_blank");
-  const handleEmail = () => window.location.href = "mailto:info@consultoritas.es";
+  const ref = useRef<HTMLElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start end', 'end start'],
+  });
+
+  const sectionOpacity = useTransform(
+    scrollYProgress,
+    [0, 0.12, 0.5, 0.88, 1],
+    [0, 1, 1, 1, 0],
+  );
+  const sectionY = useTransform(scrollYProgress, [0, 0.5, 1], [28, 0, -28]);
 
   return (
-    <section id="contact" className="py-24 px-4 bg-slate-50">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-sm font-bold text-primary tracking-[0.3em] uppercase mb-2">Estamos cerca</h2>
-          <h3 className="text-4xl font-bold text-slate-900">Contacto Directo</h3>
-        </div>
+    <motion.section
+      ref={ref}
+      id="contact"
+      style={{ opacity: sectionOpacity, y: sectionY }}
+      className="bg-slate-50 px-4 py-32"
+    >
+      <div className="mx-auto max-w-7xl">
 
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
-          {/* Información y Botones */}
-          <div className="space-y-8">
-            <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-              <h4 className="text-2xl font-bold text-slate-900 mb-6">¿Hablamos ahora?</h4>
-              <div className="grid gap-4">
-                <Button onClick={handleWhatsApp} className="h-16 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-lg gap-3 shadow-lg shadow-emerald-100">
-                  <MessageCircle className="size-6" /> WhatsApp Directo
-                </Button>
-                <Button onClick={handleEmail} variant="outline" className="h-16 rounded-2xl border-2 text-lg gap-3 text-slate-700">
-                  <Mail className="size-6 text-primary" /> Enviar Email
-                </Button>
+        {/* Cabecera de sección */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.3 }}
+          className="mb-20 text-center"
+        >
+          <div className="mb-4 inline-flex items-center gap-3">
+            <span className="h-px w-8 bg-[#173d77]/25" />
+            <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#173d77]">
+              Presencia Física
+            </h2>
+            <span className="h-px w-8 bg-[#173d77]/25" />
+          </div>
+          <h3
+            className="text-4xl font-light tracking-tight text-slate-900"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+          >
+            Tu despacho en{' '}
+            <span className="font-semibold text-[#173d77]">Sevilla Este</span>
+          </h3>
+        </motion.div>
+
+        <div className="grid gap-8 lg:grid-cols-5">
+
+          {/* ── CTA card (fondo azul corporativo) ── */}
+          <motion.div
+            initial={{ opacity: 0, x: -28 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.25 }}
+            className="relative flex flex-col justify-between overflow-hidden rounded-[2rem] bg-[#173d77] p-10 text-white shadow-[0_32px_90px_-44px_rgba(23,61,119,0.55)] lg:col-span-2"
+          >
+            {/* Glow interno */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-sky-400/15 blur-3xl"
+            />
+            {/* Segundo glow inferior */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-[#0a1128]/40 blur-3xl"
+            />
+
+            {/* Contenido superior */}
+            <div className="relative z-10 space-y-8">
+              <div>
+                <h4
+                  className="text-3xl font-light"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
+                  ¿Hablamos?
+                </h4>
+                <p className="mt-2 text-sm font-light text-slate-300">
+                  Respuestas en menos de 24 horas.
+                </p>
               </div>
 
-              <div className="mt-10 space-y-6">
-                <div className="flex gap-4">
-                  <div className="size-12 rounded-xl bg-slate-50 flex items-center justify-center shrink-0">
-                    <MapPin className="text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">Edificio Portasevilla</p>
-                    <p className="text-sm text-slate-500">Calle Dr. González Caraballo, 1, 41020 Sevilla</p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="size-12 rounded-xl bg-slate-50 flex items-center justify-center shrink-0">
-                    <Clock className="text-accent" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">Horario de Atención</p>
-                    <p className="text-sm text-slate-500">Lunes a Jueves: 09:00 - 18:00 | Viernes: 09:00 - 14:00</p>
-                  </div>
-                </div>
+              <div className="space-y-3">
+                {/*
+                  ✅ BUG FIX: botón WhatsApp ahora usa fondo BLANCO con texto azul
+                  (antes era bg-[#173d77] sobre bg-[#173d77] = invisible)
+                */}
+                <a
+                  href="https://wa.me/34954123456"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-14 w-full items-center justify-center gap-3 rounded-[0.85rem] bg-white text-sm font-semibold text-[#173d77] shadow-[0_12px_30px_-18px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-slate-50 hover:shadow-[0_14px_34px_-18px_rgba(0,0,0,0.4)]"
+                >
+                  <MessageSquare className="size-4" strokeWidth={2} />
+                  WhatsApp Directo
+                </a>
+
+                {/* Botón email: outline sobre fondo azul */}
+                <a
+                  href="mailto:info@consultoritas.es"
+                  className="flex h-14 w-full items-center justify-center gap-3 rounded-[0.85rem] border border-white/22 text-sm text-white transition-colors hover:bg-white/8"
+                >
+                  <Mail className="size-4" strokeWidth={1.5} />
+                  Enviar Documentación
+                </a>
               </div>
             </div>
-          </div>
 
-          {/* Mapa Estándar */}
-          <div className="h-full min-h-[500px] relative">
-            <div className="w-full h-full rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white relative z-10">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3169.8985853!2d-5.9383!3d37.4015!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd126c1114be7a2b%3A0x5c8e2c7e5a8e3c0!2sEdificio%20Portasevilla!5e0!3m2!1ses!2ses!4v1710000000000"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                title="Google Maps"
-              ></iframe>
+            {/* Datos de contacto inferiores */}
+            <div className="relative z-10 mt-12 space-y-4 border-t border-white/12 pt-8 text-sm font-light text-slate-300">
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 size-4 shrink-0 text-white/60" strokeWidth={1.5} />
+                <p>
+                  Calle Dr. González Caraballo, 1<br />
+                  Planta 1 – Módulo 19 · 41020 Sevilla
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Clock className="size-4 shrink-0 text-white/60" strokeWidth={1.5} />
+                <p>L–J: 09:00–18:00 · V: 09:00–14:00</p>
+              </div>
             </div>
-            {/* Decoración detrás del mapa */}
-            <div className="absolute -bottom-6 -right-6 size-64 bg-accent/20 rounded-full blur-3xl -z-0" />
-          </div>
+          </motion.div>
+
+          {/* ── Mapa ── */}
+          <motion.div
+            initial={{ opacity: 0, x: 28 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.25 }}
+            transition={{ delay: 0.18 }}
+            className="relative min-h-[420px] overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-100 p-2 lg:col-span-3"
+          >
+            <iframe
+              src="https://www.google.com/maps?q=Consultoritas+Asesores+de+Negocio,+Calle+Dr.+Gonz%C3%A1lez+Caraballo,+1,+41020+Sevilla&ll=37.4007484,-5.9245838&z=17&output=embed"
+              width="100%"
+              height="100%"
+              style={{ border: 0, borderRadius: '1.5rem', minHeight: '400px' }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Ubicación Consultoritas Sevilla Este"
+            />
+          </motion.div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }

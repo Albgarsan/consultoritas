@@ -1,6 +1,6 @@
-"use client"
+﻿"use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Scale,
   Calculator,
@@ -12,7 +12,6 @@ import {
   Clock,
   CalendarDays,
   User,
-  X,
   Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,142 +21,149 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ConsultoritasLogo } from "@/components/layout/logo"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { apiFetch } from "@/lib/api"
 
 interface AppointmentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  prefilledClientName?: string
+  prefilledClientEmail?: string
+  hideIdentityFields?: boolean
 }
 
+interface Advisor {
+  id: string
+  name: string
+  role: string
+  initials: string
+  color: string
+  isPartner: boolean
+  is_on_vacation: boolean
+  specialties: string[]
+}
+
+const ALL_SPECIALTIES = ["fiscal", "laboral", "contable", "judicial"]
+
 const advisoryTypes = [
+  {
+    id: "general",
+    title: "Asesoramiento General",
+    icon: HelpCircle,
+    description: "Consulta general o no sé qué tipo de asesoría necesito",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
+  },
   {
     id: "fiscal",
     title: "Asesoría Fiscal",
     icon: Calculator,
     description: "Impuestos, declaraciones y planificación tributaria",
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    borderColor: "border-primary/30",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
   {
     id: "laboral",
     title: "Asesoría Laboral",
     icon: Briefcase,
     description: "Contratos, nóminas y seguridad social",
-    color: "text-accent",
-    bgColor: "bg-accent/10",
-    borderColor: "border-accent/30",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
   {
     id: "contable",
     title: "Asesoría Contable",
     icon: Scale,
     description: "Contabilidad, balances y cuentas anuales",
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-50",
-    borderColor: "border-emerald-300",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
   {
     id: "judicial",
     title: "Asesoría Judicial",
     icon: Gavel,
     description: "Litigios, reclamaciones y procedimientos judiciales",
-    color: "text-amber-600",
-    bgColor: "bg-amber-50",
-    borderColor: "border-amber-300",
-  },
-  {
-    id: "general",
-    title: "Asesoramiento General",
-    icon: HelpCircle,
-    description: "Consulta general o no sé qué tipo de asesoría necesito",
-    color: "text-muted-foreground",
-    bgColor: "bg-muted",
-    borderColor: "border-muted-foreground/30",
+    color: "text-[#173d77]",
+    bgColor: "bg-[#173d77]/5",
+    borderColor: "border-[#173d77]/20",
   },
 ]
 
-// All advisors with their specialties
-const allAdvisors = [
-  {
-    id: "antonio-garcia",
-    name: "Antonio García",
-    role: "Socio Principal - Experto Legal",
-    initials: "AG",
-    color: "bg-primary/20 text-primary",
-    isPartner: true,
-    specialties: ["judicial", "contable", "general"],
-  },
-  {
-    id: "carmen-ruiz",
-    name: "Carmen Ruiz",
-    role: "Socia Principal - Especialista Fiscal",
-    initials: "CR",
-    color: "bg-accent/20 text-accent",
-    isPartner: true,
-    specialties: ["fiscal", "general"],
-  },
-  {
-    id: "miguel-fernandez",
-    name: "Miguel Fernández",
-    role: "Asesor Laboral Senior",
-    initials: "MF",
-    color: "bg-emerald-100 text-emerald-700",
-    isPartner: false,
-    specialties: ["laboral"],
-  },
-  {
-    id: "laura-martin",
-    name: "Laura Martín",
-    role: "Asesora Contable",
-    initials: "LM",
-    color: "bg-amber-100 text-amber-700",
-    isPartner: false,
-    specialties: ["contable"],
-  },
-]
-
-// Simulated available time slots by advisor
-const advisorSlots: Record<string, { date: Date; times: string[] }[]> = {
-  "antonio-garcia": [
-    { date: new Date(2026, 2, 18), times: ["09:00", "10:30", "12:00"] },
-    { date: new Date(2026, 2, 19), times: ["09:30", "11:00"] },
-    { date: new Date(2026, 2, 20), times: ["09:00", "10:00", "11:00", "12:00"] },
-    { date: new Date(2026, 2, 23), times: ["09:00", "10:30", "12:00"] },
-    { date: new Date(2026, 2, 24), times: ["09:30", "11:00", "12:30"] },
-  ],
-  "carmen-ruiz": [
-    { date: new Date(2026, 2, 18), times: ["10:00", "11:30"] },
-    { date: new Date(2026, 2, 19), times: ["09:00", "10:00", "11:00"] },
-    { date: new Date(2026, 2, 20), times: ["09:30", "12:00"] },
-    { date: new Date(2026, 2, 23), times: ["09:00", "10:00", "11:30"] },
-    { date: new Date(2026, 2, 25), times: ["09:00", "10:30", "12:00"] },
-  ],
-  "miguel-fernandez": [
-    { date: new Date(2026, 2, 18), times: ["09:00", "12:00"] },
-    { date: new Date(2026, 2, 19), times: ["10:30", "11:30"] },
-    { date: new Date(2026, 2, 23), times: ["09:30", "11:00", "12:30"] },
-    { date: new Date(2026, 2, 24), times: ["09:00", "10:00", "11:00"] },
-  ],
-  "laura-martin": [
-    { date: new Date(2026, 2, 18), times: ["09:30", "11:00", "12:30"] },
-    { date: new Date(2026, 2, 19), times: ["09:00", "10:30"] },
-    { date: new Date(2026, 2, 20), times: ["10:00", "11:00", "12:00"] },
-    { date: new Date(2026, 2, 24), times: ["09:30", "11:00"] },
-  ],
+function formatLocalIsoWithOffset(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  const seconds = pad(date.getSeconds())
+  const tzOffsetMin = -date.getTimezoneOffset()
+  const sign = tzOffsetMin >= 0 ? "+" : "-"
+  const absOffset = Math.abs(tzOffsetMin)
+  const offsetHours = pad(Math.floor(absOffset / 60))
+  const offsetMinutes = pad(absOffset % 60)
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offsetHours}:${offsetMinutes}`
 }
 
-export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) {
+export function AppointmentModal({
+  open,
+  onOpenChange,
+  prefilledClientName,
+  prefilledClientEmail,
+  hideIdentityFields = false,
+}: AppointmentModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [selectedAdvisor, setSelectedAdvisor] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1))
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  const [dbAdvisors, setDbAdvisors] = useState<Advisor[]>([])
+
+  useEffect(() => {
+    if (open) {
+      if (prefilledClientName) setName(prefilledClientName)
+      if (prefilledClientEmail) setEmail(prefilledClientEmail)
+      apiFetch("/api/users/advisors/")
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const filtered = data.filter(u => u.role === "Asesor" || u.is_staff)
+            setDbAdvisors(filtered.map(u => ({
+              id: String(u.id),
+              name: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.email,
+              role: u.role || "Asesor",
+              initials: u.first_name ? u.first_name[0] : u.email[0].toUpperCase(),
+              color: "bg-[#173d77]/10 text-[#173d77]",
+              isPartner: Boolean(u.is_staff),
+              is_on_vacation: Boolean(u.is_on_vacation),
+              specialties: Array.isArray(u.specialties) && u.specialties.length > 0
+                ? u.specialties
+                : ALL_SPECIALTIES,
+            })))
+          } else {
+            toast.error("No se pudieron cargar los asesores disponibles")
+          }
+        })
+        .catch(() => toast.error("No se pudieron cargar los asesores disponibles"))
+    }
+  }, [open, prefilledClientName, prefilledClientEmail])
+
+  const activeAdvisors = dbAdvisors
 
   const resetAndClose = () => {
     setStep(1)
@@ -178,20 +184,40 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
   }
 
   // Get available advisors based on selected type
-  const getAvailableAdvisors = () => {
+  const getMatchingAdvisors = () => {
     if (!selectedType) return []
 
-    // For general/none, show only partners
     if (selectedType === "general") {
-      return allAdvisors.filter(a => a.isPartner)
+      const partners = activeAdvisors.filter(a => a.isPartner)
+      return partners.length > 0 ? partners : activeAdvisors
     }
 
-    // For specific areas, show advisors of that area + "Any" option
-    return allAdvisors.filter(a => a.specialties.includes(selectedType))
+    return activeAdvisors.filter(a => a.specialties.includes(selectedType))
+  }
+
+  const getAvailableAdvisors = () => getMatchingAdvisors().filter((advisor) => !advisor.is_on_vacation)
+
+  const generateAvailableDates = () => {
+    const dates: Date[] = []
+    const current = new Date()
+    let offset = 1
+
+    while (dates.length < 20) {
+      const candidate = new Date(current.getFullYear(), current.getMonth(), current.getDate() + offset)
+      const weekDay = candidate.getDay()
+      if (weekDay !== 0 && weekDay !== 6) {
+        dates.push(new Date(candidate.getFullYear(), candidate.getMonth(), candidate.getDate()))
+      }
+      offset += 1
+    }
+
+    return dates
   }
 
   // Step 2: Select advisor
   const handleAdvisorSelect = (advisorId: string) => {
+    const advisor = activeAdvisors.find((item) => item.id === advisorId)
+    if (advisor?.is_on_vacation) return
     setSelectedAdvisor(advisorId)
     setSelectedDate(null)
     setSelectedTime(null)
@@ -201,55 +227,44 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
   // Get available dates for selected advisor(s)
   const getAvailableDates = () => {
     if (!selectedAdvisor) return []
-
-    if (selectedAdvisor === "any") {
-      // Combine all dates from available advisors for this specialty
-      const availableAdvisors = getAvailableAdvisors()
-      const allDates: Date[] = []
-      availableAdvisors.forEach(advisor => {
-        const slots = advisorSlots[advisor.id] || []
-        slots.forEach(slot => {
-          if (!allDates.some(d => d.getTime() === slot.date.getTime())) {
-            allDates.push(slot.date)
-          }
-        })
-      })
-      return allDates
-    }
-
-    const slots = advisorSlots[selectedAdvisor] || []
-    return slots.map(s => s.date)
+    return generateAvailableDates()
   }
 
   // Get time slots for selected date
   const getTimeSlotsForDate = (date: Date) => {
     if (!selectedAdvisor) return []
+    const isFriday = date.getDay() === 5
+    const baseTimes = isFriday
+      ? ["09:00", "10:00", "11:00", "12:00"]
+      : ["09:00", "10:00", "11:00", "12:00", "16:00", "17:00"]
 
     if (selectedAdvisor === "any") {
       const availableAdvisors = getAvailableAdvisors()
       const slots: { time: string; advisorId: string; advisorName: string }[] = []
       availableAdvisors.forEach(advisor => {
-        const advisorSlotData = advisorSlots[advisor.id] || []
-        const daySlot = advisorSlotData.find(s => s.date.getTime() === date.getTime())
-        if (daySlot) {
-          daySlot.times.forEach(time => {
-            slots.push({ time, advisorId: advisor.id, advisorName: advisor.name })
-          })
-        }
+        baseTimes.forEach(time => {
+          slots.push({ time, advisorId: advisor.id, advisorName: advisor.name })
+        })
       })
       return slots.sort((a, b) => a.time.localeCompare(b.time))
     }
 
-    const slots = advisorSlots[selectedAdvisor] || []
-    const daySlot = slots.find(s => s.date.getTime() === date.getTime())
-    if (!daySlot) return []
-
-    const advisor = allAdvisors.find(a => a.id === selectedAdvisor)
-    return daySlot.times.map(time => ({
+    const advisor = activeAdvisors.find(a => a.id === selectedAdvisor)
+    return baseTimes.map(time => ({
       time,
       advisorId: selectedAdvisor,
       advisorName: advisor?.name || ""
     }))
+    .filter(slot => {
+      // Exclude past times for today
+      const now = new Date()
+      const isToday = date.toDateString() === now.toDateString()
+      if (!isToday) return true
+      const [h, m] = slot.time.split(":").map(Number)
+      const mins = h * 60 + m
+      const currentMins = now.getHours() * 60 + now.getMinutes()
+      return mins > currentMins + 30
+    })
   }
 
   const handleSlotSelect = (time: string, advisorId: string) => {
@@ -287,21 +302,29 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
   }
 
   const selectedTypeData = advisoryTypes.find(t => t.id === selectedType)
-  const selectedAdvisorData = allAdvisors.find(a => a.id === selectedAdvisor)
+  const selectedAdvisorData = activeAdvisors.find(a => a.id === selectedAdvisor)
 
   return (
     <Dialog open={open} onOpenChange={resetAndClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-4 border-b">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto border border-slate-200 bg-white p-0 shadow-2xl sm:rounded-[2rem]">
+        <div className="relative overflow-hidden rounded-[2rem]">
+          <div className="pointer-events-none absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-[#173d77] via-sky-500 to-[#173d77]" />
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
+
+        <DialogHeader className="border-b border-slate-200 px-6 pb-4 pt-6 md:px-8">
+          <DialogDescription className="sr-only">
+            Formulario para agendar una cita con Consultoritas
+          </DialogDescription>
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-3">
+            <DialogTitle className="flex items-center gap-3 text-[#173d77]">
               <ConsultoritasLogo variant="icon" />
               <span>Agendar Cita - Consultoritas</span>
             </DialogTitle>
           </div>
 
           {/* Progress Steps */}
-          <div className="flex items-center gap-2 mt-4">
+          <div className="mt-4 flex items-center gap-2">
             {[
               { num: 1, label: "Sector" },
               { num: 2, label: "Asesor" },
@@ -312,17 +335,17 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                   <div className={cn(
                     "size-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
                     step >= s.num
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-muted text-muted-foreground"
+                      ? "bg-[#173d77] text-white"
+                      : "bg-slate-100 text-slate-500"
                   )}>
                     {step > s.num ? <Check className="size-4" /> : s.num}
                   </div>
-                  <span className="text-xs text-muted-foreground mt-1">{s.label}</span>
+                  <span className="mt-1 text-xs text-slate-500">{s.label}</span>
                 </div>
                 {idx < 2 && (
                   <div className={cn(
                     "w-12 h-0.5 transition-colors mb-5",
-                    step > s.num ? "bg-accent" : "bg-muted"
+                    step > s.num ? "bg-[#173d77]" : "bg-slate-200"
                   )} />
                 )}
               </div>
@@ -331,13 +354,14 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
         </DialogHeader>
 
         {/* Step 1: Select Sector/Advisory Type */}
+        <div className="px-6 pb-6 md:px-8">
         {step === 1 && (
-          <div className="py-6 space-y-4">
+          <div className="space-y-4 py-6">
             <div className="text-center mb-6">
-              <h3 className="text-lg font-semibold text-foreground">
+                <h3 className="text-lg font-semibold text-[#173d77]">
                 Selecciona el tipo de asesoría
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-slate-500">
                 Elige el área en la que necesitas ayuda
               </p>
             </div>
@@ -347,15 +371,15 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                 <Card
                   key={type.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-md border-2",
+                    "cursor-pointer overflow-hidden border border-slate-200 transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]",
                     selectedType === type.id
-                      ? `${type.borderColor} shadow-md`
-                      : "border-border hover:border-accent/50"
+                      ? "border-[#173d77]/30 shadow-[0_14px_40px_-28px_rgba(23,61,119,0.4)]"
+                      : "hover:border-[#173d77]/30"
                   )}
                   onClick={() => handleTypeSelect(type.id)}
                 >
-                  <CardContent className="p-5 space-y-3">
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", type.bgColor)}>
+                  <CardContent className="space-y-3 p-5">
+                    <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", type.bgColor)}>
                       <type.icon className={cn("size-6", type.color)} />
                     </div>
                     <div>
@@ -371,24 +395,24 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
 
         {/* Step 2: Select Advisor */}
         {step === 2 && selectedType && (
-          <div className="py-6 space-y-6">
+          <div className="space-y-6 py-6">
             <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
+              <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-[#173d77] hover:bg-[#173d77]/5 hover:text-[#173d77]">
                 <ChevronLeft className="size-4 mr-1" />
                 Volver
               </Button>
               {selectedTypeData && (
-                <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color)}>
+                <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color, "border-slate-200") }>
                   {selectedTypeData.title}
                 </Badge>
               )}
             </div>
 
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-[#173d77]">
                 Selecciona un asesor
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-slate-500">
                 {selectedType === "general"
                   ? "Para consultas generales, nuestros socios principales te atenderán"
                   : "Elige quién te gustaría que te atienda"
@@ -400,12 +424,12 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
               {/* "Any" option - only for non-general types */}
               {selectedType !== "general" && (
                 <Card
-                  className="cursor-pointer border-2 border-border hover:border-accent/50 hover:shadow-md transition-all"
+                  className="cursor-pointer border border-slate-200 transition-all hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]"
                   onClick={() => handleAdvisorSelect("any")}
                 >
                   <CardContent className="p-4 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                      <User className="size-6 text-muted-foreground" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#173d77]/5">
+                      <User className="size-6 text-[#173d77]" />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-foreground">Cualquier asesor disponible</h4>
@@ -419,75 +443,90 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
               )}
 
               {/* Available advisors */}
-              {getAvailableAdvisors().map((advisor) => (
-                <Card
-                  key={advisor.id}
-                  className="cursor-pointer border-2 border-border hover:border-accent/50 hover:shadow-md transition-all"
-                  onClick={() => handleAdvisorSelect(advisor.id)}
-                >
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className={`text-sm font-semibold ${advisor.color}`}>
-                        {advisor.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-foreground">{advisor.name}</h4>
-                        {advisor.isPartner && (
-                          <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                            Socio
-                          </Badge>
-                        )}
+              {getMatchingAdvisors().map((advisor) => {
+                const isUnavailable = advisor.is_on_vacation
+
+                return (
+                  <Card
+                    key={advisor.id}
+                    className={cn(
+                      "border border-slate-200 transition-all",
+                      isUnavailable
+                        ? "cursor-not-allowed opacity-60"
+                        : "cursor-pointer hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]",
+                    )}
+                    onClick={() => {
+                      if (!isUnavailable) handleAdvisorSelect(advisor.id)
+                    }}
+                  >
+                    <CardContent className="p-4 flex items-center gap-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className={`text-sm font-semibold ${advisor.color}`}>
+                          {advisor.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-semibold text-foreground">{advisor.name}</h4>
+                          {advisor.isPartner && (
+                            <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
+                              Socio
+                            </Badge>
+                          )}
+                          {isUnavailable && (
+                            <Badge variant="outline" className="text-xs border-slate-200 bg-slate-100 text-slate-500">
+                              No disponible (Vacaciones)
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{advisor.role}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{advisor.role}</p>
-                    </div>
-                    <ChevronRight className="size-5 text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              ))}
+                      <ChevronRight className="size-5 text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           </div>
         )}
 
         {/* Step 3: Select Date & Time */}
         {step === 3 && selectedAdvisor && (
-          <div className="py-6 space-y-6">
+          <div className="space-y-6 py-6">
             <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" onClick={() => { setStep(2); setSelectedTime(null); setSelectedDate(null); }}>
+              <Button variant="ghost" size="sm" onClick={() => { setStep(2); setSelectedTime(null); setSelectedDate(null); }} className="text-[#173d77] hover:bg-[#173d77]/5 hover:text-[#173d77]">
                 <ChevronLeft className="size-4 mr-1" />
                 Volver
               </Button>
               <div className="flex items-center gap-2">
                 {selectedTypeData && (
-                  <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color, "text-xs")}>
+                  <Badge variant="outline" className={cn(selectedTypeData.bgColor, selectedTypeData.color, "text-xs border-slate-200")}>
                     {selectedTypeData.title}
                   </Badge>
                 )}
                 {selectedAdvisorData && (
-                  <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
                     {selectedAdvisorData.name}
-                  </Badge>
+                    </Badge>
                 )}
               </div>
             </div>
 
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-foreground">
-                Selecciona fecha y hora
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+                        <DialogDescription className="sr-only">Formulario para agendar una cita con Consultoritas</DialogDescription>
+              <p className="mt-1 text-sm text-slate-500">
                 Elige el momento que mejor te convenga
               </p>
             </div>
 
             {/* Calendar */}
-            <div className="border rounded-xl p-4">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between mb-4">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                  className="text-[#173d77] hover:bg-[#173d77]/5"
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
@@ -498,6 +537,7 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                   variant="ghost"
                   size="icon"
                   onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                  className="text-[#173d77] hover:bg-[#173d77]/5"
                 >
                   <ChevronRight className="size-4" />
                 </Button>
@@ -524,12 +564,12 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                       disabled={!isAvailable}
                       onClick={() => { setSelectedDate(day); setSelectedTime(null); }}
                       className={cn(
-                        "aspect-square rounded-lg text-sm transition-colors",
+                        "aspect-square rounded-xl text-sm transition-colors",
                         isAvailable
-                          ? "hover:bg-accent/20 cursor-pointer"
-                          : "text-muted-foreground/40 cursor-not-allowed",
-                        isSelected && "bg-accent text-accent-foreground",
-                        isAvailable && !isSelected && "font-medium"
+                          ? "cursor-pointer hover:bg-[#173d77]/10"
+                          : "cursor-not-allowed text-muted-foreground/40",
+                        isSelected && "bg-[#173d77] text-white",
+                        isAvailable && !isSelected && "font-medium text-slate-700"
                       )}
                     >
                       {day.getDate()}
@@ -542,8 +582,8 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
             {/* Time Slots */}
             {selectedDate && (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <CalendarDays className="size-4 text-accent" />
+                <div className="flex items-center gap-2 text-sm font-medium text-[#173d77]">
+                  <CalendarDays className="size-4 text-[#173d77]" />
                   <span className="capitalize">{formatDate(selectedDate)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -553,8 +593,10 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                       variant={selectedTime === time ? "default" : "outline"}
                       size="sm"
                       className={cn(
-                        "flex flex-col h-auto py-2",
-                        selectedTime !== time && "hover:bg-accent/10 hover:border-accent"
+                        "flex h-auto flex-col rounded-xl py-2",
+                        selectedTime === time
+                            ? "bg-[#173d77] text-white hover:bg-[#204b8f]"
+                            : "border-slate-200 text-slate-700 hover:border-[#173d77]/30 hover:bg-[#173d77]/5"
                       )}
                       onClick={() => handleSlotSelect(time, advisorId)}
                     >
@@ -574,9 +616,9 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
             {/* Confirm Button */}
             {selectedDate && selectedTime && (
               <div className="pt-4 border-t space-y-4">
-                <Card className="border-accent/30 bg-accent/5">
+                <Card className="border-[#173d77]/15 bg-[#173d77]/5">
                   <CardContent className="p-4 space-y-3">
-                    <h4 className="font-semibold text-foreground">Resumen de tu cita</h4>
+                    <h4 className="font-semibold text-[#173d77]">Resumen de tu cita</h4>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-muted-foreground">Tipo</p>
@@ -585,7 +627,7 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                       <div>
                         <p className="text-muted-foreground">Asesor</p>
                         <p className="font-medium text-foreground">
-                          {allAdvisors.find(a => a.id === selectedAdvisor)?.name || selectedAdvisorData?.name}
+                          {activeAdvisors.find(a => a.id === selectedAdvisor)?.name || selectedAdvisorData?.name}
                         </p>
                       </div>
                       <div>
@@ -602,18 +644,86 @@ export function AppointmentModal({ open, onOpenChange }: AppointmentModalProps) 
                   </CardContent>
                 </Card>
 
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1" onClick={() => { setSelectedTime(null); setSelectedDate(null); }}>
-                    Modificar
-                  </Button>
-                  <Button className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={resetAndClose}>
-                    Confirmar Cita
-                  </Button>
+                                                <div className="space-y-4 pt-4 border-t border-slate-200">
+                                                {!hideIdentityFields ? (
+                                                  <div className="grid gap-3">
+                                                    <div className="space-y-1">
+                                                      <Label>Nombre completo</Label>
+                                                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Ana Garcia" />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                      <Label>Correo electrónico</Label>
+                                                      <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ana@ejemplo.com" />
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <Card className="border-slate-200 bg-slate-50">
+                                                    <CardContent className="p-4 grid gap-1 text-sm">
+                                                      <p className="text-muted-foreground">Cliente</p>
+                                                      <p className="font-medium">{prefilledClientName || name || "Cliente"}</p>
+                                                      <p className="text-muted-foreground mt-2">Correo</p>
+                                                      <p className="font-medium">{prefilledClientEmail || email || "-"}</p>
+                                                    </CardContent>
+                                                  </Card>
+                                                )}
+                  <div className="text-sm text-center text-muted-foreground">
+                                                  {!hideIdentityFields && <>¿Ya tienes cuenta? <a href="/login" className="text-[#173d77] underline font-medium cursor-pointer">Iniciar sesión</a></>}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" className="flex-1 border-slate-200 text-[#173d77] hover:bg-[#173d77]/5" onClick={() => { setSelectedTime(null); setSelectedDate(null); }}>
+                      Modificar
+                    </Button>
+                    <Button
+                      className="flex-1 bg-[#173d77] text-white hover:bg-[#204b8f] shadow-[0_16px_36px_-18px_rgba(23,61,119,0.45)]"
+                      disabled={hideIdentityFields ? (!selectedDate || !selectedTime) : (!name || !email || !selectedDate || !selectedTime)}
+                      onClick={async () => {
+                        try {
+                            // Validate selected datetime is in the future
+                            if (!selectedDate || !selectedTime) {
+                              toast.error('Selecciona fecha y hora válidas')
+                              return
+                            }
+                            const [sh, sm] = selectedTime.split(":").map(Number)
+                            const scheduled = new Date(selectedDate)
+                            scheduled.setHours(sh, sm, 0, 0)
+                            if (scheduled.getTime() <= Date.now()) {
+                              toast.error('No puedes agendar una cita en el pasado')
+                              return
+                            }
+
+                            const res = await apiFetch("/api/business/appointments/", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                advisor_id: selectedAdvisor,
+                                appointment_type: selectedTypeData?.title || "General",
+                                client_name: name,
+                                client_email: email,
+                                scheduled_at: formatLocalIsoWithOffset(scheduled),
+                              }),
+                            })
+                          if (res.ok) {
+                            toast.success('Reserva confirmada con éxito')
+                            window.dispatchEvent(new Event("consultoritas:appointments-updated"))
+                            resetAndClose()
+                          } else {
+                            const errorData = await res.json().catch(() => ({}))
+                            toast.error(errorData.detail || errorData.error || errorData.scheduled_at || 'Error al confirmar la reserva')
+                          }
+                        } catch {
+                          toast.error('Error de red')
+                        }
+                      }}>
+                      Confirmar Cita
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         )}
+        </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

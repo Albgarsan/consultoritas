@@ -4,31 +4,16 @@ import { useState } from "react"
 import {
   Search,
   Filter,
-  MessageSquare,
-  Bot,
-  Eye,
-  Smile,
-  Meh,
-  Frown,
-  Clock,
-  User,
-  Send,
-  StickyNote,
 } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Dialog,
   DialogContent,
@@ -37,89 +22,36 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
-const conversations = [
-  {
-    id: "1",
-    cliente: "María Castro",
-    avatar: "MC",
-    tipo: "privada",
-    sentimiento: "positivo",
-    ultimaInteraccion: "Hace 5 min",
-    preview: "¿Cuánto IVA debo pagar este trimestre?",
-    messages: [
-      { role: "user", content: "Hola, tengo una duda sobre mi IVA" },
-      { role: "assistant", content: "¡Hola María! Claro, estaré encantado de ayudarte con tus dudas sobre el IVA. ¿Qué necesitas saber?" },
-      { role: "user", content: "¿Cuánto IVA debo pagar este trimestre?" },
-      { role: "assistant", content: "Según tus facturas registradas, tu IVA repercutido es de 4.250€ y tu IVA soportado es de 1.004,20€. Por lo tanto, deberás pagar 3.245,80€ en tu próxima declaración del modelo 303." },
-    ],
-  },
-  {
-    id: "2",
-    cliente: "Tech Solutions SL",
-    avatar: "TS",
-    tipo: "privada",
-    sentimiento: "negativo",
-    ultimaInteraccion: "Hace 12 min",
-    preview: "No entiendo por qué mi factura tiene dudas",
-    messages: [
-      { role: "user", content: "No entiendo por qué mi factura tiene dudas" },
-      { role: "assistant", content: "Entiendo tu preocupación. La factura FR-002 del proveedor X tiene algunas inconsistencias que nuestro sistema detectó. El CIF del emisor no coincide con los registros de la AEAT. Te recomiendo verificar este dato con tu proveedor." },
-      { role: "user", content: "Pero yo la recibí así del proveedor" },
-      { role: "assistant", content: "Comprendo. En ese caso, te sugiero contactar con tu proveedor para solicitar una factura rectificativa. Si necesitas que escalemos esto a tu asesor Juan, puedo hacerlo ahora mismo." },
-    ],
-  },
-  {
-    id: "3",
-    cliente: "Bar El Rincón",
-    avatar: "BR",
-    tipo: "privada",
-    sentimiento: "positivo",
-    ultimaInteraccion: "Hace 1 hora",
-    preview: "Gracias por procesar mis tickets tan rápido",
-    messages: [
-      { role: "user", content: "Acabo de subir los tickets de Makro" },
-      { role: "assistant", content: "¡Perfecto! He procesado los 5 tickets de Makro que has subido. Todos los datos se han extraído correctamente. El total de gastos deducibles de hoy es de 328,45€ con un IVA de 68,97€." },
-      { role: "user", content: "Gracias por procesar mis tickets tan rápido" },
-      { role: "assistant", content: "¡De nada! Para eso estoy. Si tienes más documentos para subir, no dudes en hacerlo. Recuerda que cuanto antes los proceses, más actualizada estará tu información fiscal." },
-    ],
-  },
-  {
-    id: "4",
-    cliente: "Visitante Web",
-    avatar: "VW",
-    tipo: "publica",
-    sentimiento: "neutro",
-    ultimaInteraccion: "Hace 2 horas",
-    preview: "¿Qué servicios ofrecen?",
-    messages: [
-      { role: "user", content: "¿Qué servicios ofrecen?" },
-      { role: "assistant", content: "Consultoritas ofrece servicios de asesoría fiscal completa para autónomos y PYMEs, incluyendo: presentación de impuestos, contabilidad, facturación electrónica, y consultoría fiscal personalizada con IA. ¿Te gustaría más información sobre algún servicio en particular?" },
-    ],
-  },
-  {
-    id: "5",
-    cliente: "Farmacia López",
-    avatar: "FL",
-    tipo: "privada",
-    sentimiento: "neutro",
-    ultimaInteraccion: "Hace 3 horas",
-    preview: "¿Puedo deducir el seguro del local?",
-    messages: [
-      { role: "user", content: "¿Puedo deducir el seguro del local?" },
-      { role: "assistant", content: "Sí, el seguro del local comercial es un gasto deducible si el local está afecto a tu actividad económica. Necesitarás conservar la factura o recibo del seguro. ¿Quieres que te ayude a registrarlo?" },
-    ],
-  },
-]
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from "@/components/ui/tabs"
+import {
+  Separator
+} from "@/components/ui/separator"
+import { MessageSquare,
+  Smile,
+  Meh,
+  Frown,
+  User,
+  Bot,
+  Clock,
+  Eye,
+  StickyNote,
+  Send
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+  const conversations: Array<{
+    id: string
+    cliente: string
+    avatar: string
+    tipo: "privada" | "publica"
+    sentimiento: "positivo" | "negativo" | "neutro"
+    ultimaInteraccion: string
+    preview: string
+    messages: Array<{ role: "user" | "assistant"; content: string }>
+  }> = []
 
 export function MonitorIA() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -170,8 +102,8 @@ export function MonitorIA() {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-foreground">Supervisión de Consultores IA</h2>
-        <p className="text-muted-foreground mt-1">
-          Monitor de interacciones RAG Multi-índice con clientes
+            <p className="text-muted-foreground mt-1">
+          Monitor de interacciones con clientes sincronizadas
         </p>
       </div>
 
@@ -341,6 +273,11 @@ export function MonitorIA() {
               ))}
             </TableBody>
           </Table>
+          {filteredConversations.length === 0 && (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No hay conversaciones sincronizadas.
+            </div>
+          )}
         </CardContent>
       </Card>
 

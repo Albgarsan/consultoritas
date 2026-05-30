@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    // Allow loading images served from the local backend during development
+    domains: ['localhost'],
   },
   reactCompiler: true,
 };

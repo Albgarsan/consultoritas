@@ -18,3 +18,11 @@ db.sqlite3
 # IDEs
 .vscode/
 .idea/
+
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.db
+celerybeat-schedule.bak
+celerybeat-schedule.dat
+celerybeat-schedule.dir
