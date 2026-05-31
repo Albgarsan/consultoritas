@@ -39,7 +39,7 @@ export interface DocumentoFacturacion {
   } | null
   file_name: string
   storage_path: string
-  status: "Pendiente" | "Procesado" | "Error" | string
+  status: "En cola" | "Pendiente" | "Procesado" | "Error" | string
   doc_type: "Factura" | "Gasto" | "Ingreso" | string
   uploaded_at: string
   invoice_data?: InvoiceDataAEAT | null
