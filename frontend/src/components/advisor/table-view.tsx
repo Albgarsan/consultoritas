@@ -48,7 +48,12 @@ import { useApiData } from "@/lib/use-api"
 const EXCEL_HEADER_FILL = "1E3A8A"
 const EXCEL_ZEBRA_FILL = "F8FAFC"
 
-type StatusVisual = { label: string; className: string }
+const statusMap: Record<string, { label: string; className: string }> = {
+  "en cola": { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  en_cola: { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  pendiente: { label: "Pendiente", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+  procesado: { label: "Procesado", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
+}
 
 type UploadedBy = {
   id?: string
@@ -110,16 +115,6 @@ type PaginatedDocumentsResponse = {
   previous?: string | null
   results?: BillingDocument[]
   data?: BillingDocument[]
-}
-
-const statusConfig: Record<string, StatusVisual> = {
-  pendiente: { label: "Pendiente", className: "bg-amber-500/10 text-amber-600 border-0" },
-  procesado: { label: "Procesado", className: "bg-emerald-500/10 text-emerald-600 border-0" },
-  error: { label: "Error", className: "bg-rose-500/10 text-rose-600 border-0" },
-  pagada: { label: "Pagada", className: "bg-emerald-500/10 text-emerald-600 border-0" },
-  borrador: { label: "Borrador", className: "bg-muted text-muted-foreground border-0" },
-  enviada: { label: "Enviada", className: "bg-primary/10 text-primary border-0" },
-  default: { label: "Desconocido", className: "bg-muted text-muted-foreground border-0" },
 }
 
 function resolveClientId(doc: BillingDocument) {
@@ -218,7 +213,7 @@ export function FacturacionView({ businessId }: { businessId?: string }) {
 
   const filteredRecibidas = useMemo(() => {
     let list = clientFilter === "all" ? facturasRecibidas : facturasRecibidas.filter((doc) => resolveClientName(doc) === clientFilter)
-    if (docFilters?.status) list = list.filter((d) => (d.status || "").toLowerCase() === docFilters.status?.toLowerCase())
+    if (docFilters?.status) list = list.filter((d) => d.status === docFilters.status)
     const dateFromMillis = docFilters?.dateFromMillis
     const dateToMillis = docFilters?.dateToMillis
     if (dateFromMillis) list = list.filter((d) => new Date(d.uploaded_at || d.date || 0).getTime() >= dateFromMillis)
@@ -228,7 +223,7 @@ export function FacturacionView({ businessId }: { businessId?: string }) {
 
   const filteredEmitidas = useMemo(() => {
     let list = clientFilter === "all" ? facturasEmitidas : facturasEmitidas.filter((doc) => resolveClientName(doc) === clientFilter)
-    if (docFilters?.status) list = list.filter((d) => (d.status || "").toLowerCase() === docFilters.status?.toLowerCase())
+    if (docFilters?.status) list = list.filter((d) => d.status === docFilters.status)
     const dateFromMillis = docFilters?.dateFromMillis
     const dateToMillis = docFilters?.dateToMillis
     if (dateFromMillis) list = list.filter((d) => new Date(d.uploaded_at || d.date || 0).getTime() >= dateFromMillis)
@@ -612,8 +607,7 @@ export function FacturacionView({ businessId }: { businessId?: string }) {
                 </TableHeader>
                 <TableBody>
                   {filteredRecibidas.length > 0 ? filteredRecibidas.map((invoice) => {
-                    const statusName = invoice.status?.toLowerCase()
-                    const status = statusConfig[statusName || "default"] || statusConfig.default
+                    const status = statusMap[(invoice.status || "").toLowerCase()] || { label: invoice.status || "Desconocido", className: "bg-gray-100" }
 
                     return (
                       <TableRow key={invoice.id}>
@@ -687,8 +681,7 @@ export function FacturacionView({ businessId }: { businessId?: string }) {
                 </TableHeader>
                 <TableBody>
                   {filteredEmitidas.length > 0 ? filteredEmitidas.map((invoice) => {
-                    const statusName = invoice.status?.toLowerCase()
-                    const status = statusConfig[statusName || "default"] || statusConfig.default
+                    const status = statusMap[(invoice.status || "").toLowerCase()] || { label: invoice.status || "Desconocido", className: "bg-gray-100" }
 
                     return (
                       <TableRow key={invoice.id}>

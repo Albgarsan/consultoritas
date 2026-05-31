@@ -23,6 +23,9 @@ export default function ClientePage() {
     "/api/users/me/"
   )
 
+  const { data: currentBusiness = null } = useApiData<any>("/api/business/my_business/")
+  const currentBusinessId = currentBusiness?.id ? String(currentBusiness.id) : ""
+
   // 2. Repositorio documental impositivo del cliente
   const documentsKey = user?.id ? `/api/documents/?tenant=${user.id}` : null
   const { data: documents = [], mutate: mutateDocuments, isLoading: isDocsLoading } = useApiData<any[]>(
@@ -137,18 +140,20 @@ export default function ClientePage() {
         </header>
         <main className="p-6">
           {view === "dashboard" && (
-            <DashboardView
-              onNavigate={setView}
-              user={user}
-              documents={documents}
-              stats={stats}
-              calendarEntries={calendarEntries}
-              isLoading={false}
-            />
+            <div className="space-y-6">
+              <DashboardView
+                onNavigate={setView}
+                user={user}
+                documents={documents}
+                stats={stats}
+                calendarEntries={calendarEntries}
+                isLoading={false}
+              />
+            </div>
           )}
           {view === "citas" && <ClientAppointmentsView appointments={appointments} user={user} />}
-          {view === "documentos" && <FacturacionView documents={documents} />}
-          {view === "facturacion" && <FacturacionView documents={documents} />}
+          {view === "documentos" && <FacturacionView documents={documents} businessId={currentBusinessId} />}
+          {view === "facturacion" && <FacturacionView documents={documents} businessId={currentBusinessId} />}
           {view === "settings" && <AjustesView />}
         </main>
       </SidebarInset>

@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertTriangle, FileClock, FileSearch, Users } from "lucide-react"
 import { NovedadesFiscales } from "@/components/shared/news-feed"
 import { type TaxCalendarEntry } from "@/lib/api"
@@ -24,6 +25,13 @@ type DocumentRow = {
   uploaded_at?: string
   business?: { name?: string }
   uploaded_by?: { first_name?: string; email?: string }
+}
+
+type AdvisorOption = {
+  id: string
+  first_name?: string | null
+  last_name?: string | null
+  email?: string | null
 }
 
 interface AdvisorViewProps {
@@ -77,6 +85,11 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
     `/api/documents/tax-calendar/?year=${currentYear}`,
     { dedupingInterval: 120_000, revalidateOnFocus: false },
   )
+  const { data: advisors = [] } = useApiData<AdvisorOption[]>("/api/users/advisors/", {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  })
+  const [selectedAdvisor, setSelectedAdvisor] = useState<string>("all")
   const { data: documents = [], mutate: mutateDocuments, isLoading: isDocumentsLoading } = useApiData<DocumentRow[]>(
     "/api/documents/",
     { dedupingInterval: 20_000 },
@@ -124,32 +137,50 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
 
   const VALID_MODELS = ["111", "115", "123", "130", "202", "303"];
 
-  const currentQuarterModels = useMemo(() => {
-    const grouped = new Map<string, { model: string; clients: Set<string>; presented: number; pending: number }>()
+  const filteredCalendar = useMemo(() => {
+    if (selectedAdvisor === "all") return allCalendar
+    return allCalendar.filter((item) => {
+      const biz: any = item.business
+      if (!biz) return false
+      if (biz.responsible_advisor_id && String(biz.responsible_advisor_id) === String(selectedAdvisor)) return true
+      if (biz.responsible_advisor_name && String(biz.responsible_advisor_name).toLowerCase().includes(String(selectedAdvisor).toLowerCase())) return true
+      return false
+    })
+  }, [allCalendar, selectedAdvisor])
 
-    for (const item of allCalendar) {
+  const currentQuarterModels = useMemo(() => {
+    const map = new Map<string, { model: string; clients: Set<string>; presented: number; pending: number }>()
+
+    // initialize all models to keep table structure fixed
+    for (const model of VALID_MODELS) {
+      map.set(model, { model, clients: new Set<string>(), presented: 0, pending: 0 })
+    }
+
+    for (const item of filteredCalendar) {
       const d = parseLocalDateYYYYMMDD(item.period_start)
       if (d.getFullYear() !== currentYear) continue
       if (quarterFromDate(d) !== currentQuarter) continue
 
       const model = toModelCode(item.tax_type)
-
       if (!VALID_MODELS.includes(model)) continue
 
-      if (!grouped.has(model)) {
-        grouped.set(model, { model, clients: new Set<string>(), presented: 0, pending: 0 })
-      }
-
-      const entry = grouped.get(model)!
-      entry.clients.add(item.business.id)
+      const entry = map.get(model)!
+      if (item.business?.id) entry.clients.add(item.business.id)
       if (item.is_presented) entry.presented += 1
       else entry.pending += 1
     }
 
-    return Array.from(grouped.values())
-      .filter((entry) => entry.clients.size > 0)
-      .sort((a, b) => a.model.localeCompare(b.model))
-  }, [allCalendar, currentQuarter, currentYear])
+    // preserve the order of VALID_MODELS
+    return VALID_MODELS.map((m) => map.get(m)!)
+  }, [filteredCalendar, currentQuarter, currentYear])
+
+  const advisorOptions = useMemo(() => {
+    return advisors.map((advisor) => ({
+      id: advisor.id,
+      label:
+        [advisor.first_name, advisor.last_name].filter(Boolean).join(" ").trim() || advisor.email || "Asesor",
+    }))
+  }, [advisors])
 
   const incidenceBusinesses = useMemo(
     () => businesses.filter((b) => b.tax_status === "INCIDENCIA"),
@@ -227,9 +258,24 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
                 <CardTitle className="text-lg font-bold text-slate-800">Campaña Trimestral Activa ({currentQuarter})</CardTitle>
                 <CardDescription className="mt-1">Seguimiento en tiempo real de los modelos del trimestre en curso.</CardDescription>
               </div>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1">
-                {currentYear}
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Select value={selectedAdvisor} onValueChange={setSelectedAdvisor}>
+                  <SelectTrigger className="md:w-48">
+                    <SelectValue placeholder="Todos los asesores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los asesores</SelectItem>
+                    {advisorOptions.map((advisor) => (
+                      <SelectItem key={advisor.id} value={advisor.id}>
+                        {advisor.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1">
+                  {currentYear}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">

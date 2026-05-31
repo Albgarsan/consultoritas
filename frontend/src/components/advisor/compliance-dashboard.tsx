@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -45,8 +46,16 @@ type MatrixRow = {
   businessName: string
   responsibleAdvisorId?: string | null
   responsibleAdvisorName?: string | null
+  business?: TaxCalendarEntry["business"]
   cells: Record<string, MatrixCell>
   urgentCount: number
+}
+
+type AdvisorOption = {
+  id: string
+  first_name?: string | null
+  last_name?: string | null
+  email?: string | null
 }
 
 const MODELS = ["111", "115", "123", "130", "202", "303"]
@@ -131,7 +140,7 @@ function isOverdue(deadline: string) {
 
 export function ComplianceDashboard() {
   const [search, setSearch] = useState("")
-  const [responsibleAdvisorFilter, setResponsibleAdvisorFilter] = useState("all")
+  const [selectedAdvisor, setSelectedAdvisor] = useState<string>("all")
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -146,6 +155,10 @@ export function ComplianceDashboard() {
   } = useApiData<TaxCalendarEntry[]>(`/api/documents/tax-calendar/?year=${filing.year}`, {
     revalidateOnFocus: false,
     dedupingInterval: 30_000,
+  })
+  const { data: advisors = [] } = useApiData<AdvisorOption[]>("/api/users/advisors/", {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
   })
   const { data: currentUser } = useApiData<{ id: string; role?: string }>("/api/users/me/")
 
@@ -168,16 +181,9 @@ export function ComplianceDashboard() {
       const periodYear = periodDate.getFullYear()
       if (periodQuarter !== qLabel || periodYear !== filing.year) return false
 
-      const advisorId = entry.business.responsible_advisor_id || ""
-      if (responsibleAdvisorFilter === "unassigned") {
-        if (advisorId) return false
-      } else if (responsibleAdvisorFilter !== "all" && advisorId !== responsibleAdvisorFilter) {
-        return false
-      }
-
       return entry.business?.name?.toLowerCase().includes(search.toLowerCase())
     })
-  }, [calendarEntries, filing.quarter, filing.year, responsibleAdvisorFilter, search])
+  }, [calendarEntries, filing.quarter, filing.year, search])
 
   const matrixRows = useMemo<MatrixRow[]>(() => {
     const byBusiness = new Map<string, MatrixRow>()
@@ -189,6 +195,7 @@ export function ComplianceDashboard() {
           businessName: entry.business.name,
           responsibleAdvisorId: entry.business.responsible_advisor_id || null,
           responsibleAdvisorName: entry.business.responsible_advisor_name || null,
+          business: entry.business,
           urgentCount: 0,
           cells: Object.fromEntries(
             MODELS.map((model) => [model, { state: "missing" as const }]),
@@ -215,19 +222,28 @@ export function ComplianceDashboard() {
     })
   }, [filtered])
 
+  const filteredMatrixRows = useMemo(() => {
+    if (selectedAdvisor === "all") return matrixRows
+    return matrixRows.filter(
+      (row) =>
+        row.responsibleAdvisorId === selectedAdvisor ||
+        row.business?.responsible_advisor_id === selectedAdvisor,
+    )
+  }, [matrixRows, selectedAdvisor])
+
   const advisorOptions = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const row of matrixRows) {
-      if (row.responsibleAdvisorId) {
-        map.set(row.responsibleAdvisorId, row.responsibleAdvisorName || "Asesor responsable")
-      }
-    }
-    return Array.from(map.entries()).map(([id, label]) => ({ id, label }))
-  }, [matrixRows])
+    return advisors.map((advisor) => ({
+      id: advisor.id,
+      label:
+        [advisor.first_name, advisor.last_name].filter(Boolean).join(" ").trim() ||
+        advisor.email ||
+        "Asesor",
+    }))
+  }, [advisors])
 
   const totalUrgent = useMemo(
-    () => matrixRows.reduce((acc, row) => acc + row.urgentCount, 0),
-    [matrixRows],
+    () => filteredMatrixRows.reduce((acc, row) => acc + row.urgentCount, 0),
+    [filteredMatrixRows],
   )
 
   const handleMarkPresented = async (entryId: string) => {
@@ -377,22 +393,24 @@ export function ComplianceDashboard() {
             <CardTitle className="text-base flex items-center gap-2">
                 <Filter className="size-4" /> Filtro de clientes
             </CardTitle>
-            <CardDescription>Control trimestral por cliente y modelo oficial.</CardDescription>
+            <CardDescription>Control trimestral por cliente, modelo oficial y asesor responsable.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3 md:flex-row">
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." />
-            <select
-              value={responsibleAdvisorFilter}
-              onChange={(e) => setResponsibleAdvisorFilter(e.target.value)}
-              className="input rounded border border-input bg-white p-2 text-sm md:w-64"
-            >
-              <option value="all">Asesor responsable: Todos</option>
-              <option value="unassigned">Sin asignar</option>
-              {advisorOptions.map((advisor) => (
-                <option key={advisor.id} value={advisor.id}>{advisor.label}</option>
-              ))}
-            </select>
+            <Select value={selectedAdvisor} onValueChange={setSelectedAdvisor}>
+              <SelectTrigger className="md:w-72">
+                <SelectValue placeholder="Todos los asesores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los asesores</SelectItem>
+                {advisorOptions.map((advisor) => (
+                  <SelectItem key={advisor.id} value={advisor.id}>
+                    {advisor.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -418,7 +436,7 @@ export function ComplianceDashboard() {
                 <Skeleton key={index} className="h-14 w-full" />
               ))}
             </div>
-          ) : matrixRows.length === 0 ? (
+          ) : filteredMatrixRows.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">No hay datos para los filtros seleccionados.</div>
           ) : (
             <div className="overflow-x-auto">
@@ -432,7 +450,7 @@ export function ComplianceDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {matrixRows.map((row) => (
+                  {filteredMatrixRows.map((row) => (
                     <tr key={row.businessId} className={cn("border-b", row.urgentCount > 0 && "bg-rose-50/20")}>
                       <td className="p-3 align-middle">
                         <div className="flex items-center gap-2">
