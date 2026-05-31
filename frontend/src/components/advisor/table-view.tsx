@@ -710,7 +710,7 @@ export function FacturacionView({ businessId }: { businessId?: string }) {
                                 <ExternalLink className="size-4 mr-2" />
                                 Abrir en pestaña nueva
                               </DropdownMenuItem>
-                              {statusName === "borrador" && (
+                              {(invoice.status || "").toLowerCase() === "borrador" && (
                                 <DropdownMenuItem disabled>
                                   <Send className="size-4 mr-2" />
                                   Enviar (no implementado)

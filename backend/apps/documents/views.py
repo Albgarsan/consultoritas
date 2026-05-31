@@ -37,7 +37,7 @@ def _get_authorized_business(request, business_id: str | None):
         raise ValidationError({"business_id": "Este campo es obligatorio."})
 
     qs = Business.objects.filter(pk=business_id)
-    if getattr(request.user, "role", None) != "Asesor" and not request.user.is_staff:
+    if not request.user.is_staff:
         qs = qs.filter(users__user=request.user)
 
     business = qs.first()
@@ -147,7 +147,11 @@ class FinancialStatsView(APIView):
             return Response(payload, status=status.HTTP_200_OK)
 
         if getattr(request.user, "role", None) == "Asesor":
-            queryset = Document.objects.all().select_related("business", "invoice_data")
+            queryset = (
+                Document.objects.filter(business__users__user=request.user)
+                .select_related("business", "invoice_data")
+                .distinct()
+            )
         else:
             queryset = Document.objects.filter(
                 business__users__user=request.user
@@ -227,7 +231,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             .order_by("-uploaded_at")
         )
         if user.role == "Asesor":
-            filtered = qs
+            filtered = qs.filter(business__users__user=user).distinct()
         else:
             filtered = qs.filter(business__users__user=user).distinct()
 
@@ -482,7 +486,13 @@ class InvoiceDataViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         if getattr(self.request.user, "role", None) == "Asesor":
-            return InvoiceData.objects.all().select_related("document")
+            return (
+                InvoiceData.objects.filter(
+                    document__business__users__user=self.request.user
+                )
+                .select_related("document")
+                .distinct()
+            )
 
         return (
             InvoiceData.objects.filter(document__uploaded_by=self.request.user)

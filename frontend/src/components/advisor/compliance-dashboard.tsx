@@ -185,10 +185,26 @@ export function ComplianceDashboard() {
     })
   }, [calendarEntries, filing.quarter, filing.year, search])
 
+  const filteredCalendar = useMemo(() => {
+    if (selectedAdvisor === "all") return filtered
+    const selectedAdvisorLower = selectedAdvisor.trim().toLowerCase()
+    return filtered.filter((item) => {
+      const advisorId = item.business?.responsible_advisor_id?.trim()
+      if (advisorId && advisorId === selectedAdvisor) return true
+
+      const advisorName = item.business?.responsible_advisor_name?.trim().toLowerCase()
+      if (!advisorName) return false
+
+      if (advisorName === selectedAdvisorLower) return true
+      if (advisorName.includes(selectedAdvisorLower)) return true
+      return false
+    })
+  }, [filtered, selectedAdvisor])
+
   const matrixRows = useMemo<MatrixRow[]>(() => {
     const byBusiness = new Map<string, MatrixRow>()
 
-    for (const entry of filtered) {
+    for (const entry of filteredCalendar) {
       if (!byBusiness.has(entry.business.id)) {
         byBusiness.set(entry.business.id, {
           businessId: entry.business.id,
@@ -220,7 +236,7 @@ export function ComplianceDashboard() {
       if (a.urgentCount !== b.urgentCount) return b.urgentCount - a.urgentCount
       return a.businessName.localeCompare(b.businessName)
     })
-  }, [filtered])
+  }, [filteredCalendar])
 
   const filteredMatrixRows = useMemo(() => {
     if (selectedAdvisor === "all") return matrixRows

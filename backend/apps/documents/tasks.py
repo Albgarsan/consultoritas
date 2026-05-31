@@ -1,17 +1,32 @@
+import logging
 import mimetypes
 
+import requests
 from celery import shared_task
 from django.core.files.storage import default_storage
 
 from .models import Document
 from .services import GeminiOCRService
 
+logger = logging.getLogger(__name__)
 
-@shared_task(name="apps.documents.process_document_ocr")
+
+@shared_task(
+    name="apps.documents.process_document_ocr",
+    autoretry_for=(requests.exceptions.RequestException, TimeoutError),
+    retry_backoff=True,
+    max_retries=3,
+)
 def process_document_ocr_task(document_id):
-    document = Document.objects.select_related("business", "uploaded_by").get(
-        pk=document_id
-    )
+    try:
+        document = Document.objects.select_related("business", "uploaded_by").get(
+            pk=document_id
+        )
+    except Document.DoesNotExist:
+        logger.warning(
+            "OCR task skipped because document %s no longer exists", document_id
+        )
+        return
 
     try:
         service = GeminiOCRService()

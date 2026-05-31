@@ -139,11 +139,16 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
 
   const filteredCalendar = useMemo(() => {
     if (selectedAdvisor === "all") return allCalendar
+    const selectedAdvisorLower = selectedAdvisor.trim().toLowerCase()
     return allCalendar.filter((item) => {
-      const biz: any = item.business
-      if (!biz) return false
-      if (biz.responsible_advisor_id && String(biz.responsible_advisor_id) === String(selectedAdvisor)) return true
-      if (biz.responsible_advisor_name && String(biz.responsible_advisor_name).toLowerCase().includes(String(selectedAdvisor).toLowerCase())) return true
+      const advisorId = item.business?.responsible_advisor_id?.trim()
+      if (advisorId && advisorId === selectedAdvisor) return true
+
+      const advisorName = item.business?.responsible_advisor_name?.trim().toLowerCase()
+      if (!advisorName) return false
+
+      if (advisorName === selectedAdvisorLower) return true
+      if (advisorName.includes(selectedAdvisorLower)) return true
       return false
     })
   }, [allCalendar, selectedAdvisor])

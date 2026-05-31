@@ -292,12 +292,14 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
   }
 
   const fetchDocuments = async (page = 1) => {
+    if (!businessId) {
+      return
+    }
+
     try {
       const params = new URLSearchParams()
       params.set("page", String(page))
-      if (businessId) {
-        params.set("business_id", businessId)
-      }
+      params.set("business_id", businessId)
       const res = await apiFetch(`/api/documents/?${params.toString()}`)
       if (!res.ok) return
       const data = (await res.json().catch(() => [])) as PaginatedDocumentsResponse | BillingDocument[]
@@ -317,6 +319,12 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
   }
 
   useEffect(() => {
+    if (!businessId) {
+      setDocs([])
+      setPageState({ count: 0, next: null, previous: null, page: 1 })
+      return
+    }
+
     const refresh = () => { fetchDocuments(pageRef.current).catch(() => {}) }
     window.addEventListener("consultoritas:refresh", refresh)
     // initial load

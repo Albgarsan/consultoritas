@@ -148,4 +148,6 @@ class GeminiOCRService:
 
         except Exception as e:
             logger.exception("Fallo inesperado en GeminiOCRService")
-            raise ValueError(f"Fallo en la extracción analítica del OCR: {str(e)}")
+            raise ValueError(
+                f"Fallo en la extracción analítica del OCR: {str(e)}"
+            ) from e
