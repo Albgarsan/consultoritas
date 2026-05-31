@@ -177,11 +177,10 @@ export function DocumentFilter({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos los estados</SelectItem>
-                      <SelectItem value="pendiente">Pendiente</SelectItem>
-                      <SelectItem value="procesado">Procesado</SelectItem>
-                      <SelectItem value="pagada">Pagada</SelectItem>
-                      <SelectItem value="borrador">Borrador</SelectItem>
-                      <SelectItem value="enviada">Enviada</SelectItem>
+                      <SelectItem value="En cola">En cola</SelectItem>
+                      <SelectItem value="Pendiente">Pendiente</SelectItem>
+                      <SelectItem value="Procesado">Procesado</SelectItem>
+                      <SelectItem value="Error">Error</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

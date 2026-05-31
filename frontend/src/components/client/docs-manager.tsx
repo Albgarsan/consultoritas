@@ -1,23 +1,35 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Receipt, FileText, FileSpreadsheet, Download, Eye, ExternalLink } from "lucide-react"
+import { Search, Receipt, FileText, FileSpreadsheet, Download, Eye, ExternalLink, Upload, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DocumentFilter } from "@/components/shared/document-filter"
 import { toast } from "sonner"
+import { apiFetch, parseBackendError } from "@/lib/api"
 
 const typeIcons: Record<string, any> = { factura: Receipt, nomina: FileSpreadsheet, impuesto: FileText, contrato: FileText, default: FileText }
 
-export function DocumentosView({ documents = [] }: { documents?: any[] }) {
+const statusMap: Record<string, { label: string; className: string }> = {
+  "en cola": { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  en_cola: { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  pendiente: { label: "Pendiente", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+  procesado: { label: "Procesado", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
+  error: { label: "Error OCR", className: "bg-destructive/10 text-destructive dark:bg-destructive/20 font-medium" },
+}
+
+export function DocumentosView({ documents = [], businessId }: { documents?: any[]; businessId?: string }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewName, setPreviewName] = useState("")
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const [filters, setFilters] = useState<{
     status?: string
     dateFromMillis?: number
@@ -27,6 +39,44 @@ export function DocumentosView({ documents = [] }: { documents?: any[] }) {
 
   const activeDocuments = documents.length > 0 ? documents : []
 
+  const handleUpload = async () => {
+    if (!uploadFile) {
+      toast.error("Selecciona un archivo para continuar")
+      return
+    }
+
+    if (!businessId) {
+      toast.error("No se ha identificado la empresa activa")
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", uploadFile)
+      formData.append("business_id", businessId)
+
+      const response = await apiFetch("/api/documents/upload/", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || errorData.error || "No se pudo procesar el documento")
+      }
+
+      setUploadFile(null)
+      window.dispatchEvent(new Event("consultoritas:balance-updated"))
+      window.dispatchEvent(new Event("consultoritas:refresh"))
+      toast.success("Documento procesado correctamente")
+    } catch (error) {
+      toast.error(error instanceof Error ? parseBackendError(error.message) : "No se pudo subir el documento")
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const filteredDocs = activeDocuments.filter(doc => {
     // Search filter
     if (searchQuery && !(doc.file_name || "").toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -35,9 +85,7 @@ export function DocumentosView({ documents = [] }: { documents?: any[] }) {
 
     // Status filter
     if (filters.status) {
-      const docStatus = (doc.status || "").toLowerCase()
-      const filterStatus = filters.status.toLowerCase()
-      if (docStatus !== filterStatus) {
+      if (doc.status !== filters.status) {
         return false
       }
     }
@@ -135,6 +183,34 @@ export function DocumentosView({ documents = [] }: { documents?: any[] }) {
         <p className="text-muted-foreground">Gestiona tus papeles con la ayuda de la IA.</p>
       </div>
 
+      <Card className="rounded-[2rem] border-slate-200 bg-white shadow-[0_24px_70px_-40px_rgba(23,61,119,0.24)]">
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-base font-semibold">Subir factura OCR</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-2">
+            <label className="text-sm font-medium text-slate-700" htmlFor="ocr-upload-file">
+              Archivo
+            </label>
+            <Input
+              id="ocr-upload-file"
+              type="file"
+              accept=".pdf,image/*"
+              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              className="border-slate-200 bg-slate-50"
+            />
+          </div>
+          <Button
+            onClick={handleUpload}
+            disabled={isUploading || !uploadFile || !businessId}
+            className="gap-2 bg-[#0a1128] text-white hover:bg-[#12244a]"
+          >
+            {isUploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            Procesar OCR
+          </Button>
+        </CardContent>
+      </Card>
+
       <DocumentFilter onFilterChange={setFilters} />
 
       <Card className="border-border/50 shadow-sm">
@@ -177,9 +253,18 @@ export function DocumentosView({ documents = [] }: { documents?: any[] }) {
                   </TableCell>
                   <TableCell className="text-sm">{new Date(doc.uploaded_at).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    <Badge variant={doc.status?.toLowerCase() === "procesado" ? "default" : "outline"} className={doc.status?.toLowerCase() === "procesado" ? "bg-emerald-500/10 text-emerald-600 border-0" : ""}>
-                      {doc.status?.toLowerCase() === "procesado" ? "Procesado IA" : "Pendiente"}
-                    </Badge>
+                    <div className="space-y-2">
+                      <Badge variant="outline" className={statusMap[(doc.status || "").toLowerCase()]?.className || "bg-gray-100"}>
+                        {statusMap[(doc.status || "").toLowerCase()]?.label || doc.status || "Desconocido"}
+                      </Badge>
+                      {(doc.status || "").toLowerCase() === "error" && (
+                        <Alert variant="destructive" className="py-2">
+                          <AlertDescription className="text-xs leading-5">
+                            ❌ Error en el procesamiento automático: No hemos podido extraer los datos de este documento. Por favor, asegúrate de que el archivo no esté protegido con contraseña, que el formato sea un PDF/imagen válido y vuelve a subirlo. Si el error persiste, contacta con tu asesor.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right pr-6 space-x-1">
                     <Button variant="ghost" size="sm" onClick={() => openDocumentPreview(doc)} className="gap-1">
