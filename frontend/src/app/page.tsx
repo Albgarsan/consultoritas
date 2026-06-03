@@ -10,7 +10,7 @@ import { AboutSection } from '@/components/landing/about';
 import { AppointmentModal } from '@/components/shared/modals/appointment-modal';
 import { Calculator, Briefcase, Scale, Gavel, Users, HeartHandshake } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ChatWidget } from '@/components/shared/chat-widget';
+import { PublicChatWidget } from '@/components/shared/ai-chat';
 
 export default function LandingPage() {
   const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
@@ -131,7 +131,7 @@ export default function LandingPage() {
       </footer>
 
       <AppointmentModal open={appointmentModalOpen} onOpenChange={setAppointmentModalOpen} />
-      <ChatWidget />
+      <PublicChatWidget />
     </div>
   );
 }
