@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getServerAuthUser } from "@/lib/server-auth"
+import { ClientChatWidget } from "@/components/shared/ai-chat"
 
 export const dynamic = "force-dynamic"
 
@@ -18,5 +19,10 @@ export default async function ClienteLayout({
     redirect("/asesor")
   }
 
-  return <>{children}</>
+  return (
+    <>
+      {children}
+      <ClientChatWidget />
+    </>
+  )
 }
