@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertTriangle, FileClock, FileSearch, Users } from "lucide-react"
-import { NovedadesFiscales } from "@/components/shared/news-feed"
 import { type TaxCalendarEntry } from "@/lib/api"
 import { useApiData } from "@/lib/use-api"
 
@@ -60,8 +59,6 @@ function toModelCode(taxType?: string) {
   const s = String(taxType || "").trim().toUpperCase()
   const direct = s.match(/\b(111|115|123|130|202|303)\b/)
   if (direct) return direct[1]
-
-  // Common legacy name mappings
   if (s.includes("IVA")) return "303"
   if (s.includes("IRPF") || s.includes("PAGO A CUENTA") || s.includes("PAGO_A_CUENTA")) return "130"
   if (s.includes("RETENC") || s.includes("RET.") || s.includes("RETEN")) {
@@ -69,7 +66,6 @@ function toModelCode(taxType?: string) {
     if (s.includes("123") || s.includes("PROF")) return "123"
     return "111"
   }
-
   return s
 }
 
@@ -95,6 +91,9 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
     { dedupingInterval: 20_000 },
   )
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: conversations = [] } = useApiData<any[]>("/api/ai/conversations/")
+
   const isLoading = isBusinessesLoading || isCalendarLoading || isDocumentsLoading
 
   useEffect(() => {
@@ -103,7 +102,6 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
       void mutateCalendar()
       void mutateDocuments()
     }
-
     window.addEventListener("consultoritas:refresh", refresh)
     window.addEventListener("consultoritas:documents-updated", refresh)
     window.addEventListener("consultoritas:clients-updated", refresh)
@@ -133,8 +131,6 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
       .slice(0, 8)
   }, [pendingDocuments])
 
-
-
   const VALID_MODELS = ["111", "115", "123", "130", "202", "303"];
 
   const filteredCalendar = useMemo(() => {
@@ -143,10 +139,8 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
     return allCalendar.filter((item) => {
       const advisorId = item.business?.responsible_advisor_id?.trim()
       if (advisorId && advisorId === selectedAdvisor) return true
-
       const advisorName = item.business?.responsible_advisor_name?.trim().toLowerCase()
       if (!advisorName) return false
-
       if (advisorName === selectedAdvisorLower) return true
       if (advisorName.includes(selectedAdvisorLower)) return true
       return false
@@ -155,42 +149,34 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
 
   const currentQuarterModels = useMemo(() => {
     const map = new Map<string, { model: string; clients: Set<string>; presented: number; pending: number }>()
-
-    // initialize all models to keep table structure fixed
     for (const model of VALID_MODELS) {
       map.set(model, { model, clients: new Set<string>(), presented: 0, pending: 0 })
     }
-
     for (const item of filteredCalendar) {
       const d = parseLocalDateYYYYMMDD(item.period_start)
       if (d.getFullYear() !== currentYear) continue
       if (quarterFromDate(d) !== currentQuarter) continue
-
       const model = toModelCode(item.tax_type)
       if (!VALID_MODELS.includes(model)) continue
-
       const entry = map.get(model)!
       if (item.business?.id) entry.clients.add(item.business.id)
       if (item.is_presented) entry.presented += 1
       else entry.pending += 1
     }
-
-    // preserve the order of VALID_MODELS
     return VALID_MODELS.map((m) => map.get(m)!)
   }, [filteredCalendar, currentQuarter, currentYear])
 
   const advisorOptions = useMemo(() => {
     return advisors.map((advisor) => ({
       id: advisor.id,
-      label:
-        [advisor.first_name, advisor.last_name].filter(Boolean).join(" ").trim() || advisor.email || "Asesor",
+      label: [advisor.first_name, advisor.last_name].filter(Boolean).join(" ").trim() || advisor.email || "Asesor",
     }))
   }, [advisors])
 
-  const incidenceBusinesses = useMemo(
-    () => businesses.filter((b) => b.tax_status === "INCIDENCIA"),
-    [businesses],
-  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ratedChats = conversations.filter((c: any) => c.rating && c.rating > 0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const avgRating = ratedChats.length ? (ratedChats.reduce((acc: number, c: any) => acc + c.rating, 0) / ratedChats.length).toFixed(1) : "N/D"
 
   if (isLoading) {
     return (
@@ -202,13 +188,8 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
         <div className="grid gap-6 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <Card key={index} className="border-border/50 shadow-sm">
-              <CardHeader>
-                <Skeleton className="h-5 w-40" />
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </CardContent>
+              <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+              <CardContent className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></CardContent>
             </Card>
           ))}
         </div>
@@ -301,35 +282,13 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
                 <TableBody>
                   {currentQuarterModels.map((entry) => (
                     <TableRow key={entry.model} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="font-bold text-slate-800">
-                        {entry.model}
+                      <TableCell className="font-bold text-slate-800">{entry.model}</TableCell>
+                      <TableCell className="text-center"><span className="text-sm font-medium text-slate-600">{entry.clients.size}</span></TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center"><Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 px-3 py-1 text-sm font-bold shadow-sm">{entry.presented}</Badge></div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="text-sm font-medium text-slate-600">{entry.clients.size}</span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex justify-center">
-                          <Badge
-                            variant="outline"
-                            className="bg-emerald-50 text-emerald-700 border-emerald-200 px-3 py-1 text-sm font-bold shadow-sm"
-                          >
-                            {entry.presented}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex justify-center">
-                          <Badge
-                            variant="outline"
-                            className={
-                              entry.pending > 0
-                                ? "bg-rose-50 text-rose-700 border-rose-200 px-3 py-1 text-sm font-bold shadow-sm"
-                                : "bg-slate-50 text-slate-400 border-slate-200 px-3 py-1 text-sm font-medium"
-                            }
-                          >
-                            {entry.pending}
-                          </Badge>
-                        </div>
+                        <div className="flex justify-center"><Badge variant="outline" className={entry.pending > 0 ? "bg-rose-50 text-rose-700 border-rose-200 px-3 py-1 text-sm font-bold shadow-sm" : "bg-slate-50 text-slate-400 border-slate-200 px-3 py-1 text-sm font-medium"}>{entry.pending}</Badge></div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -340,37 +299,39 @@ export function AdvisorView({ onNavigate }: AdvisorViewProps) {
         </Card>
       </div>
 
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <AlertTriangle className="size-4 text-amber-600" /> Incidencias Detectadas por IA
-          </CardTitle>
-          <CardDescription>Clientes con estado fiscal en incidencia.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {incidenceBusinesses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No se detectan incidencias activas.</p>
-          ) : (
-            <div className="grid gap-2 md:grid-cols-2">
-              {incidenceBusinesses.map((business) => (
-                <div key={business.id} className="rounded-md border border-amber-200 bg-amber-50/50 p-3">
-                  <p className="font-medium text-sm">{business.name}</p>
-                  <p className="text-xs text-amber-700">Requiere revisión prioritaria</p>
+      <div className="md:w-1/2">
+        <Card className="border-border/50 shadow-sm flex flex-col justify-between">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="size-4 text-rose-600" /> Alertas en Consultor IA
+              </span>
+              <span className="text-xl font-bold bg-amber-50 text-amber-700 px-3 py-1 rounded-full border border-amber-200">
+                ⭐ {avgRating} <span className="text-xs font-normal">/ 5</span>
+              </span>
+            </CardTitle>
+            <CardDescription>Atención humana requerida en el Chatbot.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const pendingReview = conversations.filter((c: any) => c.unread_alerts && (c.security_alert || c.has_incident))
+              if (pendingReview.length === 0) {
+                return <p className="text-sm text-muted-foreground mb-6 mt-2">Todo al día. No hay alertas pendientes de revisión.</p>
+              }
+              return (
+                <div className="flex flex-col items-center justify-center py-4 mb-4 bg-rose-50/50 rounded-xl border border-rose-100">
+                    <span className="text-5xl font-black text-rose-600 mb-1">{pendingReview.length}</span>
+                    <span className="text-sm font-medium text-rose-800">Chats pendientes de revisar</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Novedades Fiscales</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <NovedadesFiscales />
-        </CardContent>
-      </Card>
+              )
+            })()}
+            <Button variant="outline" className="w-full" onClick={() => onNavigate("monitor-ia")}>
+              Ir al Monitor IA
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
