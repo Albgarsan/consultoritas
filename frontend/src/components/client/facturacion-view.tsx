@@ -72,23 +72,12 @@ type PageState = {
 
 type InvoiceType = "Factura" | "Ingreso"
 
-type StatusVisual = {
-  label: string
-  className: string
-}
-
-const statusConfig: Record<string, StatusVisual> = {
-  pendiente: { label: "Pendiente", className: "bg-amber-500/10 text-amber-700 border-0" },
-  procesado: { label: "Procesado", className: "bg-emerald-500/10 text-emerald-700 border-0" },
-  error: { label: "Error", className: "bg-rose-500/10 text-rose-700 border-0" },
-  pagada: { label: "Pagada", className: "bg-emerald-500/10 text-emerald-700 border-0" },
-  borrador: { label: "Borrador", className: "bg-muted text-muted-foreground border-0" },
-  enviada: { label: "Enviada", className: "bg-primary/10 text-primary border-0" },
-  default: { label: "Desconocido", className: "bg-muted text-muted-foreground border-0" },
-}
-
-function toStatusKey(value?: string) {
-  return (value || "").trim().toLowerCase()
+const statusMap: Record<string, { label: string; className: string }> = {
+  "en cola": { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  en_cola: { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  pendiente: { label: "Pendiente", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+  procesado: { label: "Procesado", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
+  error: { label: "Error OCR", className: "bg-destructive/10 text-destructive dark:bg-destructive/20 font-medium" },
 }
 
 function toDateLabel(value?: string) {
@@ -123,7 +112,7 @@ function resolveDateRangeLabel(filters: DocumentFilters) {
   return "Periodo visible"
 }
 
-export function FacturacionView({ documents = [] }: { documents?: BillingDocument[] }) {
+export function FacturacionView({ documents = [], businessId }: { documents?: BillingDocument[]; businessId?: string }) {
   const [docs, setDocs] = useState<BillingDocument[]>(documents)
   const [pageState, setPageState] = useState<PageState>({
     count: 0,
@@ -160,8 +149,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
   const filteredRecibidas = useMemo(() => {
     let result = facturasRecibidas
     if (docFilters.status) {
-      const target = docFilters.status.toLowerCase()
-      result = result.filter((doc) => toStatusKey(doc.status) === target)
+      result = result.filter((doc) => doc.status === docFilters.status)
     }
     if (docFilters.dateFromMillis) {
       result = result.filter((doc) => resolveDateMillis(doc) >= docFilters.dateFromMillis!)
@@ -175,8 +163,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
   const filteredEmitidas = useMemo(() => {
     let result = facturasEmitidas
     if (docFilters.status) {
-      const target = docFilters.status.toLowerCase()
-      result = result.filter((doc) => toStatusKey(doc.status) === target)
+      result = result.filter((doc) => doc.status === docFilters.status)
     }
     if (docFilters.dateFromMillis) {
       result = result.filter((doc) => resolveDateMillis(doc) >= docFilters.dateFromMillis!)
@@ -270,14 +257,19 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
       return
     }
 
+    if (!businessId) {
+      toast.error("No se ha identificado la empresa activa")
+      return
+    }
+
     setIsCreating(true)
     try {
       const formData = new FormData()
       formData.append("file", createFile)
+      formData.append("business_id", businessId)
       formData.append("doc_type", createType)
-      formData.append("status", "Pendiente")
 
-      const response = await apiFetch("/api/documents/", {
+      const response = await apiFetch("/api/documents/upload/", {
         method: "POST",
         body: formData,
       })
@@ -290,6 +282,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
       toast.success("Factura subida correctamente")
       setCreateOpen(false)
       setCreateFile(null)
+      window.dispatchEvent(new Event("consultoritas:balance-updated"))
       window.dispatchEvent(new Event("consultoritas:refresh"))
     } catch (error) {
       toast.error(error instanceof Error ? parseBackendError(error.message) : "No se pudo subir la factura")
@@ -299,9 +292,14 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
   }
 
   const fetchDocuments = async (page = 1) => {
+    if (!businessId) {
+      return
+    }
+
     try {
       const params = new URLSearchParams()
       params.set("page", String(page))
+      params.set("business_id", businessId)
       const res = await apiFetch(`/api/documents/?${params.toString()}`)
       if (!res.ok) return
       const data = (await res.json().catch(() => [])) as PaginatedDocumentsResponse | BillingDocument[]
@@ -321,6 +319,12 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
   }
 
   useEffect(() => {
+    if (!businessId) {
+      setDocs([])
+      setPageState({ count: 0, next: null, previous: null, page: 1 })
+      return
+    }
+
     const refresh = () => { fetchDocuments(pageRef.current).catch(() => {}) }
     window.addEventListener("consultoritas:refresh", refresh)
     // initial load
@@ -328,7 +332,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
     return () => {
       window.removeEventListener("consultoritas:refresh", refresh)
     }
-  }, [])
+  }, [businessId])
 
   const totalPages = Math.max(1, Math.ceil((pageState.count || docs.length || 0) / 20))
   const goToPreviousPage = () => {
@@ -355,8 +359,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
     }
 
     return rows.map((invoice) => {
-      const statusName = toStatusKey(invoice.status)
-      const status = statusConfig[statusName] || statusConfig.default
+      const status = statusMap[(invoice.status || "").toLowerCase()] || { label: invoice.status || "Desconocido", className: "bg-gray-100" }
       const isBusy = actionLoadingId === invoice.id
 
       return (
@@ -411,7 +414,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
           <p className="text-muted-foreground">Gestiona tus facturas emitidas y recibidas.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button className="gap-2" onClick={() => setCreateOpen(true)}>
+          <Button className="gap-2 bg-[#0a1128] text-white hover:bg-[#12244a]" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
             Subir factura
           </Button>
@@ -588,7 +591,7 @@ export function FacturacionView({ documents = [] }: { documents?: BillingDocumen
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button onClick={handleCreateInvoice} disabled={isCreating} className="gap-2">
+              <Button onClick={handleCreateInvoice} disabled={isCreating} className="gap-2 bg-[#0a1128] text-white hover:bg-[#12244a]">
                 {isCreating ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 Subir factura
               </Button>

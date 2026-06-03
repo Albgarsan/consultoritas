@@ -141,25 +141,7 @@ class InvoiceData(models.Model):
             return None
 
         normalized = str(value).strip().upper()
-        if nif_tipo in {"PASAPORTE", "IVA"}:
-            return normalized
-
-        nif_pattern = re.compile(r"^\d{8}[A-Z]$")
-        nie_pattern = re.compile(r"^[XYZ]\d{7}[A-Z]$")
-        cif_pattern = re.compile(r"^[A-Z]\d{7}[A-Z0-9]$")
-
-        patterns = [nif_pattern, nie_pattern, cif_pattern]
-        if nif_tipo == "NIF":
-            patterns = [nif_pattern]
-        elif nif_tipo == "NIE":
-            patterns = [nie_pattern]
-        elif nif_tipo == "CIF":
-            patterns = [cif_pattern]
-
-        if not any(pattern.fullmatch(normalized) for pattern in patterns):
-            raise ValidationError(
-                {"nif_identificacion": "El NIF/CIF/NIE no tiene un formato válido."}
-            )
+        normalized = normalized.replace(" ", "").replace("-", "")
 
         return normalized
 

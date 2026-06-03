@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from apps.users.models import User
+
+# Dejamos el import por si se usa en otro sitio, pero no lo usaremos para relaciones anidadas
 from apps.users.serializers import UserSerializer
 from django.utils import timezone
 from rest_framework import serializers
@@ -8,9 +11,26 @@ from rest_framework import serializers
 from .models import Appointment, Business, UserBusiness
 
 
+# 1. Creamos un serializador plano exclusivo para romper la recursión circular
+class SimpleUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "is_principal",
+            "is_on_vacation",
+        ]
+
+
 class BusinessSerializer(serializers.ModelSerializer):
     tax_status = serializers.SerializerMethodField()
-    responsible_advisor = UserSerializer(read_only=True)
+
+    # 2. FIX: Usamos el serializador simple en lugar de UserSerializer para evitar el bucle infinito
+    responsible_advisor = SimpleUserSerializer(read_only=True)
     responsible_advisor_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role="Asesor"),
         source="responsible_advisor",
@@ -50,7 +70,9 @@ class UserBusinessSerializer(serializers.ModelSerializer):
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
-    advisor = UserSerializer(read_only=True)
+    # 3. FIX DE SEGURIDAD: También blindamos las citas con el serializador simple
+    # para evitar que las citas metan al asesor completo con toda su cartera de clientes.
+    advisor = SimpleUserSerializer(read_only=True)
     advisor_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role="Asesor"),
         source="advisor",
@@ -97,8 +119,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
         time_value = attrs.pop("time", None)
         force_out_of_hours = attrs.pop("force_out_of_hours", False)
 
-        # If this is a partial update: allow status-only changes,
-        # but if both date and time are provided, compute scheduled_at.
         if self.instance is not None and self.partial:
             if date_value and time_value:
                 try:
@@ -115,7 +135,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
                         {"scheduled_at": "Fecha u hora inválidas."}
                     ) from exc
             elif "scheduled_at" not in attrs:
-                # Partial update without scheduling fields -> allow status/notes updates.
                 return attrs
 
         if not attrs.get("scheduled_at") and date_value and time_value:
@@ -149,7 +168,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     {"advisor_id": "El asesor está de vacaciones"}
                 )
 
-            # Treat each appointment as a 60-minute block and reject any overlap.
             start_window = scheduled_at - timedelta(hours=1)
             end_window = scheduled_at + timedelta(hours=1)
             qs = Appointment.objects.filter(
@@ -174,7 +192,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     {"scheduled_at": "No se puede porque ya esta ocupado."}
                 )
 
-            # Working hours guard with explicit override from frontend confirmation.
             local_dt = timezone.localtime(scheduled_at)
             local_time = local_dt.time()
             day_key = [
