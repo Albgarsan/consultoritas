@@ -118,6 +118,14 @@ const EXCEL_HEADER_FILL = "1E3A8A"
 const EXCEL_ZEBRA_FILL = "F8FAFC"
 const ITEMS_PER_PAGE = 10
 
+const statusMap: Record<string, { label: string; className: string }> = {
+  "en cola": { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  en_cola: { label: "En cola", className: "bg-muted text-muted-foreground animate-pulse" },
+  pendiente: { label: "Pendiente", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+  procesado: { label: "Procesado", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
+  error: { label: "Error OCR", className: "bg-destructive/10 text-destructive dark:bg-destructive/20 font-medium" },
+}
+
 const REQUIRED_OCR_FIELDS: Array<keyof InvoiceDataAEAT> = [
   "issue_date",
   "invoice_number",
@@ -174,12 +182,7 @@ function computeConfidence(invoiceData?: InvoiceDataAEAT | null) {
 }
 
 function resolveStatusLabel(status?: string) {
-  const key = (status || "").toLowerCase()
-  if (key === "procesado") return "Procesado"
-  if (key === "pendiente") return "Pendiente"
-  if (key === "error") return "Error"
-  if (key === "pagada") return "Pagada"
-  return "Desconocido"
+  return statusMap[(status || "").toLowerCase()]?.label || (status || "Desconocido")
 }
 
 function toDateMillis(doc: DocumentoValidacion) {
@@ -196,6 +199,14 @@ function toLocaleDate(doc: DocumentoValidacion) {
 
 function rowToEditable(row: ValidationRow): EditableAEAT {
   const invoice = row.invoiceData || {}
+
+  let taxRateStr = "21"
+  if (invoice.tax_rate !== undefined && invoice.tax_rate !== null) {
+      taxRateStr = Number.isInteger(Number(invoice.tax_rate))
+          ? String(Math.round(Number(invoice.tax_rate)))
+          : String(invoice.tax_rate)
+  }
+
   return {
     issue_date: toDateInputValue(invoice.issue_date || invoice.issue_date),
     fecha_operacion: toDateInputValue(invoice.fecha_operacion || invoice.issue_date),
@@ -207,7 +218,7 @@ function rowToEditable(row: ValidationRow): EditableAEAT {
     clave_operacion: invoice.clave_operacion || "01",
     total_amount: String(invoice.total_amount ?? invoice.total_amount ?? row.doc.amount ?? ""),
     tax_base: String(invoice.tax_base ?? invoice.tax_base ?? ""),
-    tax_rate: String(invoice.tax_rate ?? invoice.tax_rate ?? 21),
+    tax_rate: taxRateStr, // <--- Aquí inyectamos la variable arreglada
     tax_amount: String(invoice.tax_amount ?? ""),
     tipo_recargo_equivalencia: String(invoice.tipo_recargo_equivalencia ?? ""),
     cuota_recargo_equivalencia: String(invoice.cuota_recargo_equivalencia ?? ""),
@@ -232,14 +243,10 @@ function counterpartyLabel(doc: DocumentoValidacion) {
   )
 }
 
-function normalizeStatus(status?: string) {
-  return (status || "").trim().toLowerCase()
-}
-
 function getStatusPriority(status?: string) {
-  const normalized = normalizeStatus(status)
-  if (normalized === "pendiente" || normalized === "en cola") return 0
-  if (normalized === "procesado") return 1
+  const current = (status || "").toLowerCase()
+  if (current === "en cola" || current === "en_cola" || current === "pendiente") return 0
+  if (current === "procesado") return 1
   return 2
 }
 
@@ -390,8 +397,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
   const filteredRecibidas = useMemo(() => {
     let result = sortedRecibidas
     if (filters.status) {
-      const wanted = filters.status.toLowerCase()
-      result = result.filter((row) => (row.doc.status || "").toLowerCase() === wanted)
+      result = result.filter((row) => row.doc.status === filters.status)
     }
     if (filters.client) {
       result = result.filter((row) => row.cliente === filters.client)
@@ -408,8 +414,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
   const filteredEmitidas = useMemo(() => {
     let result = sortedEmitidas
     if (filters.status) {
-      const wanted = filters.status.toLowerCase()
-      result = result.filter((row) => (row.doc.status || "").toLowerCase() === wanted)
+      result = result.filter((row) => row.doc.status === filters.status)
     }
     if (filters.client) {
       result = result.filter((row) => row.cliente === filters.client)
@@ -441,10 +446,10 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
   }, [currentPage, totalPages])
 
   const pendingValidation = [...filteredRecibidas, ...filteredEmitidas].filter(
-    (row) => (row.doc.status || "").toLowerCase() !== "procesado",
+    (row) => row.doc.status !== "Procesado",
   ).length
   const validated = [...filteredRecibidas, ...filteredEmitidas].filter(
-    (row) => (row.doc.status || "").toLowerCase() === "procesado",
+    (row) => row.doc.status === "Procesado",
   ).length
 
   const openValidation = (row: ValidationRow) => {
@@ -646,8 +651,8 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
   }
 
   const executeExport = (type: "recibidas" | "emitidas" | "ambas") => {
-    const processedRecibidas = filteredRecibidas.filter((row) => (row.doc.status || "").toLowerCase() === "procesado")
-    const processedEmitidas = filteredEmitidas.filter((row) => (row.doc.status || "").toLowerCase() === "procesado")
+    const processedRecibidas = filteredRecibidas.filter((row) => row.doc.status === "Procesado")
+    const processedEmitidas = filteredEmitidas.filter((row) => row.doc.status === "Procesado")
     const exportRows =
       type === "recibidas"
         ? processedRecibidas
@@ -776,7 +781,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
       return
     }
 
-    const hasUnprocessed = selectedClientRows.some((row) => (row.doc.status || "").toLowerCase() !== "procesado")
+    const hasUnprocessed = selectedClientRows.some((row) => row.doc.status !== "Procesado")
     if (hasUnprocessed) {
       setPendingExportType(type)
       setShowExportWarning(true)
@@ -891,7 +896,9 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
                       <TableRow key={row.id}>
                         <TableCell className="font-medium">{row.cliente}</TableCell>
                         <TableCell className="max-w-[180px] truncate">{row.contraparte}</TableCell>
-                        <TableCell>{row.estado}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn(statusMap[(row.doc.status || "").toLowerCase()]?.className || "bg-gray-100")}>{row.estado}</Badge>
+                        </TableCell>
                         <TableCell>
                           <Badge
                             variant="outline"
