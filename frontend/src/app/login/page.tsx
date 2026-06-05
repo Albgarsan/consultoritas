@@ -149,7 +149,7 @@ export default function LoginPage() {
                         ¿Olvidaste tu contraseña?
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="relative sm:max-w-md rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_24px_80px_-40px_rgba(23,61,119,0.35)]">
+                    <DialogContent className="fixed left-[50%] top-[50%] z-50 w-full max-w-md translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_-40px_rgba(23,61,119,0.35)]">
                       <div className="pointer-events-none absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-[#173d77] via-sky-500 to-[#173d77]" />
                       <DialogHeader>
                         <DialogTitle className="text-[#173d77]">Recuperar Contraseña</DialogTitle>
