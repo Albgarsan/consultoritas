@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { ClientSidebar } from "@/components/client/sidebar"
 import { DashboardView } from "@/components/client/client-view"
 import { ClientAppointmentsView } from "@/components/client/appointments-view"
+import { ChatHistoryView } from "@/components/client/chat-history-view"
 import { FacturacionView } from "@/components/client/facturacion-view"
 import { AjustesView } from "@/components/client/settings"
 import { apiFetch } from "@/lib/api"
@@ -154,6 +155,7 @@ export default function ClientePage() {
           {view === "citas" && <ClientAppointmentsView appointments={appointments} user={user} />}
           {view === "documentos" && <FacturacionView documents={documents} businessId={currentBusinessId} />}
           {view === "facturacion" && <FacturacionView documents={documents} businessId={currentBusinessId} />}
+          {view === "historial-ia" && <ChatHistoryView />}
           {view === "settings" && <AjustesView />}
         </main>
       </SidebarInset>
