@@ -41,8 +41,6 @@ class TestAIEngineModels:
         assert msg_ai.content == "Tu IVA está al día."
         assert msg_user.conversation == conv
 
-
-class TestAIEngineViews:
     def test_get_conversations_unauthorized(self, api_client):
         """Un usuario anónimo (sin token) no puede listar conversaciones privadas"""
         try:
@@ -74,8 +72,6 @@ class TestAIEngineViews:
         if response.status_code != 404:
             assert response.status_code in [200, 201]
 
-
-class TestAIEngineAPIIntegration:
     def test_list_and_retrieve_conversations(self, authenticated_client):
         """Cubre la serialización y listado de chats del usuario"""
         client, user = authenticated_client
@@ -102,11 +98,6 @@ class TestAIEngineAPIIntegration:
             url, {"is_human_intervening": True, "unread_alerts": False}, format="json"
         )
 
-
-# ==========================================
-# 3. TESTS MASIVOS DE IA
-# ==========================================
-class TestAIEngineDeepLogic:
     @patch("apps.ai_engine.views.GroqChatService")
     def test_conversation_history_and_messaging(self, mock_svc, authenticated_client):
         client, user = authenticated_client

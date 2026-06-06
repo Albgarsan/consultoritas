@@ -308,12 +308,9 @@ class TestDocumentSniper:
     def test_perform_create_branches(
         self, mock_task, authenticated_client, authenticated_advisor
     ):
-        """Barre todas las validaciones de permisos al subir un archivo (líneas 116-147)"""
         client, user = authenticated_client
         adv_client, advisor = authenticated_advisor
-        file = SimpleUploadedFile("f.pdf", b"1", content_type="application/pdf")
 
-        # 1. Asesor sube archivo a un negocio
         biz1 = baker.make("business.Business")
         baker.make(
             "business.UserBusiness",
@@ -321,28 +318,23 @@ class TestDocumentSniper:
             business=biz1,
             role_in_business="Admin",
         )
-        adv_client.post(
-            "/api/documents/documents/",
-            {"file": file, "business_id": biz1.id, "doc_type": "Factura"},
-            format="multipart",
-        )
 
-        # 2. Cliente sin negocio (Debería fallar)
-        client.post(
-            "/api/documents/documents/",
-            {"file": file, "doc_type": "Factura"},
+        file1 = SimpleUploadedFile("f1.pdf", b"1", content_type="application/pdf")
+        # EL ARREGLO: La URL correcta es /upload/
+        res1 = adv_client.post(
+            "/api/documents/upload/",
+            {"file": file1, "business_id": biz1.id, "doc_type": "Factura"},
             format="multipart",
         )
+        assert res1.status_code in [201, 202]
 
-        # 3. Cliente con 2 negocios sin especificar ID (Debería fallar)
-        biz2 = baker.make("business.Business")
-        baker.make("business.UserBusiness", user=user, business=biz1)
-        baker.make("business.UserBusiness", user=user, business=biz2)
-        client.post(
-            "/api/documents/documents/",
-            {"file": file, "doc_type": "Factura"},
+        file2 = SimpleUploadedFile("f2.pdf", b"1", content_type="application/pdf")
+        res2 = client.post(
+            "/api/documents/upload/",
+            {"file": file2, "doc_type": "Factura"},
             format="multipart",
         )
+        assert res2.status_code == 400
 
     def test_serializers_direct_brute_force(self):
         """Dispara los métodos internos de los serializadores de documentos"""

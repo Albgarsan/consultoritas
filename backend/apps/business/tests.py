@@ -9,9 +9,6 @@ from model_bakery import baker
 pytestmark = pytest.mark.django_db
 
 
-# ==========================================
-# 1. TESTS DE MANAGEMENT COMMANDS
-# ==========================================
 class TestBusinessCommands:
     def test_populate_calendars_command(self):
         """Prueba la ejecución del comando de población de calendarios"""
@@ -26,11 +23,6 @@ class TestBusinessCommands:
         call_command("seed_system")
         assert mock_handle.called
 
-
-# ==========================================
-# 2. TESTS DE MODELOS Y SIGNALS
-# ==========================================
-class TestBusinessModelsAndSignals:
     def test_business_creation_and_signals(self):
         """
         Al crear un negocio, se ejecutan las señales (signals.py)
@@ -57,11 +49,6 @@ class TestBusinessModelsAndSignals:
         biz.refresh_from_db()
         assert biz.tax_status == "INCIDENCIA"
 
-
-# ==========================================
-# 3. TESTS DE VISTAS (API)
-# ==========================================
-class TestBusinessViews:
     def test_list_businesses_as_advisor(self, authenticated_advisor):
         """Un asesor debería poder listar los negocios"""
         client, advisor = authenticated_advisor
@@ -81,11 +68,6 @@ class TestBusinessViews:
             # Fallback en caso de que el nombre del reverse en urls.py sea distinto
             pass
 
-
-# ==========================================
-# 4. TESTS DE INTEGRACIÓN DE API (Views & Serializers)
-# ==========================================
-class TestBusinessAPIIntegration:
     def test_business_full_crud_flow(self, authenticated_advisor):
         """Simula el flujo completo de un Asesor gestionando un Negocio"""
         client, advisor = authenticated_advisor
@@ -124,11 +106,6 @@ class TestBusinessAPIIntegration:
         )
         client.get(url)
 
-
-# ==========================================
-# 5. TESTS MASIVOS DE SERIALIZADORES Y SEÑALES
-# ==========================================
-class TestBusinessDeepLogic:
     def test_business_and_signals_full_flow(self, authenticated_advisor, client_user):
         """
         Dispara la Vista, el Serializador y las 100 líneas del archivo signals.py
@@ -192,11 +169,6 @@ class TestBusinessDeepLogic:
         client.post("/api/business/appointments/", payload, format="json")
         client.get("/api/business/appointments/")
 
-
-# ==========================================
-# 6. TESTS DE FRANCOTIRADOR (Señales y Serializadores Directos)
-# ==========================================
-class TestBusinessSniper:
     def test_direct_signals_execution(self, client_user):
         from apps.business.signals import (
             ensure_business_tax_calendar,

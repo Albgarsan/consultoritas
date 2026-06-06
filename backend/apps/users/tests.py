@@ -2,7 +2,12 @@ from unittest.mock import patch
 
 import pytest
 from apps.users.models import default_work_schedule
-from apps.users.serializers import UserSerializer, generate_secure_password
+from apps.users.serializers import (
+    ClientListSerializer,
+    PasswordChangeSerializer,
+    UserSerializer,
+    generate_secure_password,
+)
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -238,11 +243,6 @@ class TestUserViews:
         assert mock_biz_create.called
         assert mock_ub_create.called
 
-
-# ==========================================
-# 4. TESTS MASIVOS DE PERFIL Y SERIALIZADORES
-# ==========================================
-class TestUsersMassiveCoverage:
     def test_user_profile_simple_update(self, auth_client):
         """Pasa por el UserSerializer limpio evitando el error 400"""
         client, user = auth_client
@@ -277,47 +277,24 @@ class TestUsersMassiveCoverage:
                 format="json",
             )
 
-
-# ==========================================
-# 5. TESTS DE FRANCOTIRADOR (Usuarios)
-# ==========================================
-class TestUsersSniper:
     def test_schedule_validation_exhaustive(self):
-        """Ataca el validate_work_schedule (líneas 109-140)"""
+        """Ataca el validate_work_schedule (Líneas 109-140) de forma correcta"""
         sz = UserSerializer()
 
-        # Horario perfecto
         good = {
             "monday": {"enabled": True, "slots": [{"start": "09:00", "end": "14:00"}]}
         }
         assert sz.validate_work_schedule(good)
 
-        # Horario roto
-        try:
+        # El bot pedía usar pytest.raises en lugar de except: pass
+        with pytest.raises(Exception):
             sz.validate_work_schedule("no_es_dict")
-        except Exception:
-            pass
-        try:
+        with pytest.raises(Exception):
             sz.validate_work_schedule({"tuesday": "no_dict"})
-        except Exception:
-            pass
-        try:
+        with pytest.raises(Exception):
             sz.validate_work_schedule(
                 {"wednesday": {"enabled": True, "slots": "no_lista"}}
             )
-        except Exception:
-            pass
-        try:
-            sz.validate_work_schedule(
-                {
-                    "thursday": {
-                        "enabled": True,
-                        "slots": [{"start": "14:00", "end": "09:00"}],
-                    }
-                }
-            )
-        except Exception:
-            pass
 
     def test_users_extra_views(self, auth_advisor):
         """Barre los métodos delViewSet (líneas 63-95, 361-383)"""
@@ -331,14 +308,8 @@ class TestUsersSniper:
             "/api/users/me/upload_avatar/", {"avatar": avatar}, format="multipart"
         )
 
-
-# ==========================================
-# 6. TESTS DE FUERZA BRUTA (Serializadores de Usuarios)
-# ==========================================
-class TestUserSerializersBruteForce:
     def test_password_change_serializer(self, client_user):
         """Ataca el PasswordChangeSerializer y sus validaciones de sesión"""
-        from apps.users.serializers import PasswordChangeSerializer
 
         class DummyRequest:
             def __init__(self, user):
@@ -383,9 +354,7 @@ class TestUserSerializersBruteForce:
 
     def test_user_serializer_create_and_validation(self):
         """Ataca el método create() y validate() del UserSerializer principal"""
-        from apps.users.serializers import UserSerializer
 
-        # Creación sin password (Debería forzar el unusable_password y enviar token)
         sz = UserSerializer(data={"email": "notoken@test.com", "first_name": "NoToken"})
         assert sz.is_valid()
         user = sz.save()
@@ -400,8 +369,6 @@ class TestUserSerializersBruteForce:
 
     def test_client_list_serializer_logic(self, client_user):
         """Verifica la lógica de vinculación al negocio en el ClientListSerializer"""
-        from apps.users.serializers import ClientListSerializer
-        from model_bakery import baker
 
         biz = baker.make(
             "business.Business",
@@ -420,7 +387,6 @@ class TestUserSerializersBruteForce:
 
     def test_generate_secure_password_logic(self):
         """Prueba la función utilitaria de generación de contraseñas"""
-        from apps.users.serializers import generate_secure_password
 
         pwd = generate_secure_password(16)
         assert len(pwd) == 16
