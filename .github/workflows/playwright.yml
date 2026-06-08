@@ -14,7 +14,30 @@ jobs:
       run: |
         cp .env.example .env
         sed -i 's/<your-generated-secret>/django-insecure-test-key-for-ci-only/' .env
-        sed -i 's|^DATABASE_URL=.*|DATABASE_URL=sqlite:////tmp/db.sqlite3|' .env
+        sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:password@db:5432/consultoritas|' .env
+
+        cat << 'EOF' > docker-compose.ci.yml
+        services:
+          db:
+            image: pgvector/pgvector:pg16
+            environment:
+              POSTGRES_USER: postgres
+              POSTGRES_PASSWORD: password
+              POSTGRES_DB: consultoritas
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U postgres"]
+              interval: 5s
+              timeout: 5s
+              retries: 5
+          backend:
+            depends_on:
+              db:
+                condition: service_healthy
+          worker:
+            depends_on:
+              db:
+                condition: service_healthy
+        EOF
     - uses: actions/setup-node@v4
       with:
         node-version: lts/*
@@ -22,7 +45,7 @@ jobs:
       working-directory: ./frontend
       run: npm ci
     - name: Start Application using Docker Compose
-      run: docker compose up -d --build
+      run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
     - name: Wait for services
       run: |
         echo "Waiting for frontend..."
