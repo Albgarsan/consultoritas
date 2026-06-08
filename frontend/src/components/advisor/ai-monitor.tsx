@@ -58,13 +58,19 @@ function formatDate(value: string) {
     }).format(new Date(value))
 }
 
-export function MonitorIA() {
+export function MonitorIA({ initialSearch }: { initialSearch?: string }) {
+    const [searchTerm, setSearchTerm] = useState(initialSearch || "")
+
+    useEffect(() => {
+        if (initialSearch) {
+            setSearchTerm(initialSearch)
+        }
+    }, [initialSearch])
+
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [advisors, setAdvisors] = useState<AdvisorOption[]>([])
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
-
-    const [searchTerm, setSearchTerm] = useState("")
     const [filterSecurity, setFilterSecurity] = useState(false)
     const [filterIncident, setFilterIncident] = useState(false)
     const [filterHuman, setFilterHuman] = useState(false)
@@ -95,8 +101,8 @@ export function MonitorIA() {
         }
     }
 
-    const loadConversations = async () => {
-        setIsLoadingConversations(true)
+    const loadConversations = async (silent = false) => {
+        if (!silent) setIsLoadingConversations(true)
         try {
             const response = await apiFetch("/api/ai/conversations/")
             if (!response.ok) throw new Error("No se pudieron cargar las conversaciones")
@@ -118,12 +124,12 @@ export function MonitorIA() {
             toast.error(error instanceof Error ? parseBackendError(error.message) : "Error cargando conversaciones")
             return []
         } finally {
-            setIsLoadingConversations(false)
+            if (!silent) setIsLoadingConversations(false)
         }
     }
 
-    const loadMessages = async (conversationId: string) => {
-        setIsLoadingMessages(true)
+    const loadMessages = async (conversationId: string, silent = false) => {
+        if (!silent) setIsLoadingMessages(true)
         try {
             const response = await apiFetch(`/api/ai/messages/?conversation=${conversationId}`)
             if (!response.ok) throw new Error("No se pudo cargar el historial")
@@ -139,13 +145,19 @@ export function MonitorIA() {
             toast.error(error instanceof Error ? parseBackendError(error.message) : "Error cargando historial")
             setMessages([])
         } finally {
-            setIsLoadingMessages(false)
+            if (!silent) setIsLoadingMessages(false)
         }
     }
 
     useEffect(() => {
         void loadAdvisors()
         void loadConversations()
+
+        const interval = setInterval(() => {
+            void loadConversations(true)
+        }, 5000)
+
+        return () => clearInterval(interval)
     }, [])
 
     useEffect(() => {
@@ -154,6 +166,10 @@ export function MonitorIA() {
             return
         }
         void loadMessages(selectedConversationId)
+
+        const msgInterval = setInterval(() => {
+            void loadMessages(selectedConversationId, true)
+        }, 5000)
 
         const conv = conversations.find(c => c.id === selectedConversationId);
         if (conv && conv.unread_alerts) {
@@ -167,6 +183,8 @@ export function MonitorIA() {
              })
              .catch(console.error)
         }
+
+        return () => clearInterval(msgInterval)
     }, [selectedConversationId]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const filteredConversations = conversations.filter((c) => {

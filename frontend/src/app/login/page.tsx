@@ -79,7 +79,6 @@ export default function LoginPage() {
             <div className="relative hidden overflow-hidden bg-[#173d77] p-10 text-white lg:flex lg:flex-col lg:justify-between">
               <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-sky-400/20 blur-3xl" />
               <div className="relative z-10 space-y-8">
-                <ConsultoritasLogo variant="full" />
                 <div className="space-y-4">
                   <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-sky-100">Acceso Privado</p>
                   <h1 className="text-4xl font-light tracking-tight">Portal de trabajo para clientes y asesores.</h1>
@@ -89,14 +88,12 @@ export default function LoginPage() {
                 </div>
               </div>
               <div className="relative z-10 text-xs uppercase tracking-[0.25em] text-slate-300">
-                Consultoritas Asesores de Negocio
               </div>
             </div>
 
             <div className="p-8 sm:p-10 lg:p-12">
               <div className="text-center">
                 <div className="mb-6 flex justify-center lg:hidden">
-                  <ConsultoritasLogo variant="full" />
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Acceso al Portal</h1>
                 <p className="text-sm text-slate-500">Introduce tus credenciales para continuar</p>

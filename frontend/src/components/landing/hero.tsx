@@ -40,7 +40,7 @@ const ITEM = {
 const METRICS = [
   { v: '+30', l: 'Años de trayectoria' },
   { v: '+500', l: 'Empresas asesoradas' },
-  { v: '24/7', l: 'Consultor IA activo' },
+  { v: '100%', l: 'Trato personalizado' },
 ] as const;
 
 export function HeroSection({ onAppointmentClick }: { onAppointmentClick: () => void }) {
@@ -102,34 +102,25 @@ export function HeroSection({ onAppointmentClick }: { onAppointmentClick: () => 
       >
         {/* Columna texto */}
         <div>
-          {/* Badge de posicionamiento */}
-          <motion.span
-            variants={ITEM}
-            className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-[#173d77]/14 bg-[#173d77]/[0.045] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#173d77]"
-          >
-            <span className="size-1.5 animate-pulse rounded-full bg-[#173d77]" />
-            Despacho de élite · Sevilla Este
-          </motion.span>
-
           {/* Titular serif */}
           <motion.h1
             variants={ITEM}
             className="text-balance text-[3.1rem] font-light leading-[1.07] tracking-tight text-slate-900 md:text-[4rem] lg:text-[3.3rem] xl:text-[4rem]"
             style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
           >
-            La asesoría que{' '}
+            La asesoría experta que se{' '}
             <em className="relative font-bold not-italic text-[#173d77]">
-              piensa
+              adapta
               <span className="absolute -bottom-1 left-0 h-[2px] w-full rounded-full bg-gradient-to-r from-[#173d77]/80 to-sky-400/60" />
             </em>
-            ,{' '}lee y responde por ti.
+            {' '}a tu negocio.
           </motion.h1>
 
           <motion.p
             variants={ITEM}
             className="mt-7 max-w-[30rem] text-pretty text-[1.05rem] font-light leading-[1.78] text-slate-500"
           >
-            Sube tus facturas. Nuestra IA extrae los datos fiscales, resuelve tus dudas legales en segundos y gestiona tus impuestos. Tres décadas de experiencia, potenciadas por inteligencia artificial.
+            Nuestra experiencia nos permite dar un servicio profesional y personalizado. Buscamos el desarrollo de nuestros clientes partiendo de una asistencia de negocio eficiente y un trato cercano.
           </motion.p>
 
           {/* CTAs */}
@@ -196,7 +187,6 @@ export function HeroSection({ onAppointmentClick }: { onAppointmentClick: () => 
           <div className="relative overflow-visible rounded-[2.25rem] border border-slate-200/80 bg-white shadow-[0_42px_128px_-52px_rgba(23,61,119,0.38)]">
             {/* Toolbar de la tarjeta */}
             <div className="flex items-center justify-between border-b border-slate-100 px-7 py-5">
-              <ConsultoritasLogo variant="full" />
               <div className="flex items-center gap-1.5">
                 {(['bg-rose-300', 'bg-amber-300', 'bg-emerald-400'] as const).map((c, i) => (
                   <span key={i} className={`size-2.5 rounded-full ${c} opacity-75`} />
@@ -217,26 +207,9 @@ export function HeroSection({ onAppointmentClick }: { onAppointmentClick: () => 
 
             {/* Status bar */}
             <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-7 py-4">
-              <span className="flex items-center gap-2 text-[11px] font-medium text-slate-500">
-                <span className="size-2 animate-pulse rounded-full bg-emerald-400" />
-                Consultor IA · En línea
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#173d77]/50">
-                Consultoritas
-              </span>
             </div>
           </div>
 
-          {/* Badge flotante de confianza */}
-          <div className="absolute -bottom-5 -left-5 z-20 flex items-center gap-4 rounded-[1.25rem] border border-slate-100 bg-white px-5 py-4 shadow-[0_20px_50px_-18px_rgba(23,61,119,0.22)]">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#173d77]/7">
-              <Shield className="size-5 text-[#173d77]" strokeWidth={1.5} />
-            </div>
-            <div>
-              <p className="text-[0.8125rem] font-semibold text-slate-800">100% Confidencial</p>
-              <p className="text-[10px] text-slate-400">RGPD compliant</p>
-            </div>
-          </div>
         </motion.div>
       </motion.div>
 

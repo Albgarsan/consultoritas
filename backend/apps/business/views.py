@@ -180,3 +180,32 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             .select_related("business", "advisor")
             .order_by("scheduled_at")
         )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print("VALIDATION ERROR:", serializer.errors)
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        from .emails import send_appointment_notification
+
+        appointment = serializer.save()
+        send_appointment_notification(appointment, "created")
+
+    def perform_update(self, serializer):
+        from .emails import send_appointment_notification
+
+        old_status = serializer.instance.status
+        appointment = serializer.save()
+
+        if old_status != appointment.status and appointment.status == "confirmed":
+            send_appointment_notification(appointment, "confirmed")
+        else:
+            send_appointment_notification(appointment, "updated")
+
+    def perform_destroy(self, instance):
+        from .emails import send_appointment_notification
+
+        send_appointment_notification(instance, "deleted")
+        instance.delete()

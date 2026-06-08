@@ -4,16 +4,20 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/landing/header';
 import { HeroSection } from '../components/landing/hero';
+import { ConsultoritasLogo } from '@/components/layout/logo';
 import { TeamSection } from '@/components/landing/team';
 import { ContactSection } from '@/components/landing/contact';
 import { AboutSection } from '@/components/landing/about';
 import { AppointmentModal } from '@/components/shared/modals/appointment-modal';
+import { ServicesModal } from '@/components/shared/modals/services-modal';
 import { Calculator, Briefcase, Scale, Gavel, Users, HeartHandshake } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { PublicChatWidget } from '@/components/shared/ai-chat';
 
 export default function LandingPage() {
   const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
+  const [servicesModalOpen, setServicesModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
   const router = useRouter();
   const servicesRef = useRef<HTMLElement>(null);
 
@@ -30,10 +34,10 @@ export default function LandingPage() {
   };
 
   const bentoItems = [
-    { icon: Users, title: 'Equipo cercano', desc: 'Asesores que conocen tu empresa y te acompañan en cada decisión importante.', colSpan: 'lg:col-span-2' },
-    { icon: HeartHandshake, title: 'Acompañamiento humano', desc: 'Respuestas claras, trato directo y seguimiento personalizado desde Sevilla Este.', colSpan: 'lg:col-span-1' },
-    { icon: Calculator, title: 'Fiscal & Contable', desc: 'Planificación trimestral, IVA y cuentas anuales con revisión experta.', colSpan: 'lg:col-span-1' },
-    { icon: Gavel, title: 'Laboral & Legal', desc: 'Nóminas, contratos y representación jurídica con respaldo profesional.', colSpan: 'lg:col-span-2' },
+    { icon: Calculator, title: 'Asesoría Contable', desc: 'Para conocer el estado real de su empresa necesita llevar al día la contabilidad buscando la mejora continua.', colSpan: 'lg:col-span-2' },
+    { icon: Scale, title: 'Asesoría Fiscal', desc: 'Asesoramiento fiscal especializado frente a un sistema legislativo sometido a cambios constantes.', colSpan: 'lg:col-span-1' },
+    { icon: Gavel, title: 'Asesoría Jurídica', desc: 'Resolución de asuntos de índole jurídica con los mejores profesionales del sector.', colSpan: 'lg:col-span-1' },
+    { icon: Briefcase, title: 'Asesoría Laboral', desc: 'Soluciones y obligaciones legales laborales propias de las necesidades de cada negocio.', colSpan: 'lg:col-span-2' },
   ];
 
   return (
@@ -44,7 +48,6 @@ export default function LandingPage() {
 
       {/* Bento Grid Services - Estilo unificado */}
       <motion.section ref={servicesRef} id="services" style={{ opacity: servicesOpacity, y: servicesY }} className="relative overflow-hidden bg-slate-50 px-4 py-32">
-        <div className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[900px] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-700/5 via-white to-sky-500/5 blur-3xl" />
         <div className="max-w-7xl mx-auto">
 
           <motion.div
@@ -65,13 +68,14 @@ export default function LandingPage() {
             {bentoItems.map((s, i) => (
               <motion.div
                 key={s.title}
+                onClick={() => {
+                  setSelectedService(s.title);
+                  setServicesModalOpen(true);
+                }}
                 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: false, amount: 0.25 }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className={`group relative overflow-hidden rounded-[2rem] border border-slate-200/70 bg-white p-10 transition-all duration-500 hover:shadow-[0_28px_80px_-44px_rgba(23,61,119,0.3)] ${s.colSpan}`}
+                className={`group relative overflow-hidden rounded-[2rem] border border-slate-200/70 bg-white p-10 transition-all duration-500 cursor-pointer hover:shadow-lg hover:-translate-y-1 ${s.colSpan}`}
               >
-                {/* Animación superior corporativa */}
-                <div className="absolute left-0 top-0 h-1 w-full origin-left scale-x-0 bg-gradient-to-r from-[#173d77] to-blue-500 transition-transform duration-500 ease-out group-hover:scale-x-100" />
-                <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-sky-500/10 blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
                 <div className="mb-6 flex size-12 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-[#173d77] transition-colors duration-300 group-hover:bg-blue-50">
                   <s.icon className="size-5" strokeWidth={1.5} />
@@ -96,7 +100,9 @@ export default function LandingPage() {
 
         <div className="relative z-10 mx-auto grid max-w-7xl gap-12 border-b border-white/10 pb-16 md:grid-cols-12">
           <div className="md:col-span-5 pr-8">
-            <h5 className="text-3xl font-light tracking-tight mb-6">Consul<span className="font-semibold">toritas</span></h5>
+            <div className="mb-6 w-max">
+              <ConsultoritasLogo variant="full" lightText={true} />
+            </div>
             <p className="text-slate-400 text-sm leading-relaxed max-w-sm mb-8 font-light">
               Tradición en Sevilla Este, tecnología de vanguardia. Protegemos el presente de tu empresa e impulsamos su futuro financiero.
             </p>
@@ -117,7 +123,7 @@ export default function LandingPage() {
               Calle Dr. González Caraballo, 1, planta 1 - modulo 19<br/>
               41020 Sevilla
             </p>
-            <a href="mailto:info@consultoritas.es" className="text-sm text-white font-medium hover:text-blue-300 transition-colors">info@consultoritas.es</a>
+            <a href="mailto:consultoritas.app@gmail.com" className="text-sm text-white font-medium hover:text-blue-300 transition-colors">consultoritas.app@gmail.com</a>
           </div>
         </div>
 
@@ -131,6 +137,7 @@ export default function LandingPage() {
       </footer>
 
       <AppointmentModal open={appointmentModalOpen} onOpenChange={setAppointmentModalOpen} />
+      <ServicesModal open={servicesModalOpen} onOpenChange={setServicesModalOpen} serviceTitle={selectedService} />
       <PublicChatWidget />
     </div>
   );
