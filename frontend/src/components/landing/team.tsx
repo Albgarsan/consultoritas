@@ -58,6 +58,7 @@ export function TeamSection() {
       try {
         const res = await apiFetch("/api/users/advisors/");
         if (res.ok) {
+          const data = await res.json();
           if (!Array.isArray(data)) {
             setTeam([]);
             return;
