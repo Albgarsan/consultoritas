@@ -64,9 +64,10 @@ export function TeamSection() {
             return;
           }
           setTeam(data.map((u: any) => {
-            const rawSpecs = Array.isArray(u.specialties) ? u.specialties : [];
-            const uniqueSpecs = Array.from(new Set(rawSpecs.filter((s: any) => typeof s === "string").map((s: string) => s.toLowerCase())));
-            const mappedSpecs = uniqueSpecs.map((s: string) => SPECIALTY_MAP[s] || s);
+            const rawSpecs: any[] = Array.isArray(u.specialties) ? u.specialties : [];
+            const stringSpecs: string[] = rawSpecs.filter((s: any) => typeof s === "string").map((s: string) => s.toLowerCase());
+            const uniqueSpecs: string[] = Array.from(new Set(stringSpecs));
+            const mappedSpecs: string[] = uniqueSpecs.map((s: string) => SPECIALTY_MAP[s] || s);
 
             return {
               id: u.id,
