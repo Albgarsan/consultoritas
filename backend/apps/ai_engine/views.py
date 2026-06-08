@@ -1,5 +1,7 @@
+import datetime
 import logging
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -24,11 +26,38 @@ class ConversationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if getattr(self.request.user, "role", None) == "Asesor":
-            return Conversation.objects.all()
-        return Conversation.objects.filter(
-            conversation_type="Client", user=self.request.user
-        )
+        user = self.request.user
+
+        if not user.is_authenticated:
+            return Conversation.objects.none()
+
+        if getattr(user, "role", None) == "Asesor":
+            queryset = Conversation.objects.filter(
+                Q(conversation_type="Public")
+                | Q(user__isnull=True)
+                | Q(user__businesses__business__responsible_advisor=user)
+            ).distinct()
+        else:
+            queryset = Conversation.objects.filter(user=user)
+
+        queryset = queryset.order_by("-created_at")
+
+        date_param = self.request.query_params.get("date")
+        if date_param:
+            if date_param == "today":
+                target_date = datetime.timezone.localdate()
+            else:
+                try:
+                    target_date = datetime.datetime.strptime(
+                        date_param, "%Y-%m-%d"
+                    ).date()
+                except ValueError:
+                    target_date = None
+
+            if target_date:
+                queryset = queryset.filter(created_at__date=target_date)
+
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user, conversation_type="Client")
