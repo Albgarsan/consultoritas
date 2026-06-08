@@ -1,11 +1,12 @@
 services:
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: consultoritas_mailhog
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    restart: unless-stopped
+# Servicios locales (Descomentar para usar Mailhog en desarrollo)
+#  mailhog:
+#    image: mailhog/mailhog:v1.0.1
+#    container_name: consultoritas_mailhog
+#    ports:
+#      - "1025:1025"
+#      - "8025:8025"
+#    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -26,8 +27,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      mailhog:
-        condition: service_started
+#      mailhog:
+#        condition: service_started
     volumes:
       - ./backend:/app
       - media_volume:/app/media
@@ -45,8 +46,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      mailhog:
-        condition: service_started
+#      mailhog:
+#        condition: service_started
     volumes:
       - ./backend:/app
       - media_volume:/app/media

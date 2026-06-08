@@ -432,6 +432,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
                 business = Business.objects.create(
                     name=f"{user.get_full_name()}",
+                    tax_id=request.data.get("tax_id", f"PENDING-{user.id}")[:100],
                     has_employees=request.data.get("has_employees", False),
                     has_office_rent=request.data.get("has_office_rent", False),
                 )
