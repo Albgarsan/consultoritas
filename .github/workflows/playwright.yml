@@ -13,6 +13,16 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: lts/*
+    - name: Set up Environment
+      run: |
+        cp .env.example .env
+        sed -i 's/<your-generated-secret>/django-insecure-test-key-for-ci-only/' .env
+    - name: Start Application using Docker Compose
+      run: docker compose up -d --build
+    - name: Wait for services
+      run: |
+        echo "Waiting for services to be healthy..."
+        timeout 120 bash -c 'while ! curl -s http://localhost > /dev/null; do sleep 5; done'
     - name: Install dependencies
       working-directory: ./frontend
       run: npm ci
