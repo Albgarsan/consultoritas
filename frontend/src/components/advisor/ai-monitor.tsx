@@ -58,7 +58,7 @@ function formatDate(value: string) {
     }).format(new Date(value))
 }
 
-export function MonitorIA({ initialSearch }: { initialSearch?: string }) {
+export function MonitorIA({ initialSearch }: Readonly<{ initialSearch?: string }>) {
     const [searchTerm, setSearchTerm] = useState(initialSearch || "")
 
     useEffect(() => {

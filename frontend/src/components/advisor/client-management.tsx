@@ -20,7 +20,7 @@ import { apiFetch } from "@/lib/api"
 import { useApiData } from "@/lib/use-api"
 import { mutate as globalMutate } from "swr"
 interface GestionClientesProps {
-  onNavigateToMonitor: (clientId: string) => void
+  onNavigateToMonitor: (clientName?: string) => void
 }
 
 const ITEMS_PER_PAGE = 10

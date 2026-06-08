@@ -58,10 +58,13 @@ export function TeamSection() {
       try {
         const res = await apiFetch("/api/users/advisors/");
         if (res.ok) {
-          const data = await res.json();
+          if (!Array.isArray(data)) {
+            setTeam([]);
+            return;
+          }
           setTeam(data.map((u: any) => {
             const rawSpecs = Array.isArray(u.specialties) ? u.specialties : [];
-            const uniqueSpecs = Array.from(new Set(rawSpecs.map((s: string) => s.toLowerCase())));
+            const uniqueSpecs = Array.from(new Set(rawSpecs.filter((s: any) => typeof s === "string").map((s: string) => s.toLowerCase())));
             const mappedSpecs = uniqueSpecs.map(s => SPECIALTY_MAP[s] || s);
 
             return {
@@ -190,11 +193,11 @@ export function TeamSection() {
                               </span>
                             ))}
                           </div>
-                        ) : (
+                        ) : !member.is_principal ? (
                           <span className="w-fit rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-300 backdrop-blur-sm">
                             Asesor
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <a

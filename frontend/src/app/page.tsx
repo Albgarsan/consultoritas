@@ -72,6 +72,15 @@ export default function LandingPage() {
                   setSelectedService(s.title);
                   setServicesModalOpen(true);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedService(s.title);
+                    setServicesModalOpen(true);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
                 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: false, amount: 0.25 }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 className={`group relative overflow-hidden rounded-[2rem] border border-slate-200/70 bg-white p-10 transition-all duration-500 cursor-pointer hover:shadow-lg hover:-translate-y-1 ${s.colSpan}`}

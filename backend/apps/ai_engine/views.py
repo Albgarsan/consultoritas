@@ -45,7 +45,9 @@ class ConversationViewSet(viewsets.ModelViewSet):
         date_param = self.request.query_params.get("date")
         if date_param:
             if date_param == "today":
-                target_date = datetime.timezone.localdate()
+                from django.utils import timezone
+
+                target_date = timezone.localdate()
             else:
                 try:
                     target_date = datetime.datetime.strptime(

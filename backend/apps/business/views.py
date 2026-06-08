@@ -181,12 +181,6 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             .order_by("scheduled_at")
         )
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            print("VALIDATION ERROR:", serializer.errors)
-        return super().create(request, *args, **kwargs)
-
     def perform_create(self, serializer):
         from .emails import send_appointment_notification
 

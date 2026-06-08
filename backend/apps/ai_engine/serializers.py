@@ -18,23 +18,26 @@ class ConversationSerializer(serializers.ModelSerializer):
         if not obj.user:
             return []
 
-        try:
-            # Avoid explicit queries if prefetch_related was used
-            user_businesses = obj.user.businesses.all()
-            advisors = set()
-            for ub in user_businesses:
-                if ub.business_id and ub.business.responsible_advisor_id:
-                    advisors.add(str(ub.business.responsible_advisor_id))
-            return list(advisors)
-        except Exception:
-            from apps.business.models import Business
-
-            businesses = (
-                Business.objects.filter(users__user=obj.user)
-                .exclude(responsible_advisor__isnull=True)
-                .select_related("responsible_advisor")
+        prefetched = getattr(obj.user, "_prefetched_objects_cache", {})
+        if "businesses" in prefetched:
+            user_businesses = prefetched["businesses"]
+            return list(
+                {
+                    str(ub.business.responsible_advisor_id)
+                    for ub in user_businesses
+                    if ub.business_id
+                    and getattr(ub.business, "responsible_advisor_id", None)
+                }
             )
-            return list(set(str(b.responsible_advisor_id) for b in businesses))
+
+        from apps.business.models import Business
+
+        businesses = (
+            Business.objects.filter(users__user=obj.user)
+            .exclude(responsible_advisor__isnull=True)
+            .select_related("responsible_advisor")
+        )
+        return list({str(b.responsible_advisor_id) for b in businesses})
 
     class Meta:
         model = Conversation

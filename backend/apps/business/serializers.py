@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from apps.users.models import User
 
@@ -192,9 +193,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     {"scheduled_at": "No se puede porque ya esta ocupado."}
                 )
 
-            import zoneinfo
-
-            madrid_tz = zoneinfo.ZoneInfo("Europe/Madrid")
+            madrid_tz = ZoneInfo("Europe/Madrid")
             local_dt = scheduled_at.astimezone(madrid_tz)
             local_time = local_dt.time()
             day_key = [

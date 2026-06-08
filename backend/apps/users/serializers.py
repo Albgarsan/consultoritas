@@ -193,9 +193,8 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        import secrets
-        import string
-
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
         from django.utils.html import escape, strip_tags
 
         password = validated_data.pop("password", None)
@@ -205,9 +204,13 @@ class UserSerializer(serializers.ModelSerializer):
         # If no password provided, generate a secure random one and send it via email
         generated_password = None
         if not password:
-            chars = string.ascii_letters + string.digits + "!@#$%&*"
-            generated_password = "".join(secrets.choice(chars) for _ in range(14))
+            generated_password = generate_secure_password(14)
             password = generated_password
+
+        try:
+            validate_password(password)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
 
         with transaction.atomic():
             user = User.objects.create_user(
