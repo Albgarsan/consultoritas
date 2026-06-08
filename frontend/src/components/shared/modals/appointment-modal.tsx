@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import {
@@ -149,7 +149,7 @@ export function AppointmentModal({
               role: u.role || "Asesor",
               initials: u.first_name ? u.first_name[0] : u.email[0].toUpperCase(),
               color: "bg-[#173d77]/10 text-[#173d77]",
-              isPartner: Boolean(u.is_staff),
+              isPartner: Boolean(u.is_principal),
               is_on_vacation: Boolean(u.is_on_vacation),
               specialties: Array.isArray(u.specialties) && u.specialties.length > 0
                 ? u.specialties
@@ -188,8 +188,7 @@ export function AppointmentModal({
     if (!selectedType) return []
 
     if (selectedType === "general") {
-      const partners = activeAdvisors.filter(a => a.isPartner)
-      return partners.length > 0 ? partners : activeAdvisors
+      return activeAdvisors.filter(a => a.isPartner)
     }
 
     return activeAdvisors.filter(a => a.specialties.includes(selectedType))
@@ -421,71 +420,81 @@ export function AppointmentModal({
             </div>
 
             <div className="space-y-3">
-              {/* "Any" option - only for non-general types */}
-              {selectedType !== "general" && (
-                <Card
-                  className="cursor-pointer border border-slate-200 transition-all hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]"
-                  onClick={() => handleAdvisorSelect("any")}
-                >
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#173d77]/5">
-                      <User className="size-6 text-[#173d77]" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-foreground">Cualquier asesor disponible</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Te asignaremos el primer asesor disponible del área
-                      </p>
-                    </div>
-                    <ChevronRight className="size-5 text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Available advisors */}
-              {getMatchingAdvisors().map((advisor) => {
-                const isUnavailable = advisor.is_on_vacation
-
-                return (
-                  <Card
-                    key={advisor.id}
-                    className={cn(
-                      "border border-slate-200 transition-all",
-                      isUnavailable
-                        ? "cursor-not-allowed opacity-60"
-                        : "cursor-pointer hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]",
-                    )}
-                    onClick={() => {
-                      if (!isUnavailable) handleAdvisorSelect(advisor.id)
-                    }}
-                  >
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <Avatar className="h-12 w-12">
-                        <AvatarFallback className={`text-sm font-semibold ${advisor.color}`}>
-                          {advisor.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-semibold text-foreground">{advisor.name}</h4>
-                          {advisor.isPartner && (
-                            <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
-                              Socio
-                            </Badge>
-                          )}
-                          {isUnavailable && (
-                            <Badge variant="outline" className="text-xs border-slate-200 bg-slate-100 text-slate-500">
-                              No disponible (Vacaciones)
-                            </Badge>
-                          )}
+              {getMatchingAdvisors().length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border border-dashed rounded-xl border-slate-200 bg-slate-50">
+                  <User className="size-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm font-medium">No hay asesores disponibles por el momento</p>
+                  <p className="text-xs mt-1">Por favor, inténtalo más adelante o elige otro tipo de asesoría.</p>
+                </div>
+              ) : (
+                <>
+                  {/* "Any" option - only for non-general types */}
+                  {selectedType !== "general" && (
+                    <Card
+                      className="cursor-pointer border border-slate-200 transition-all hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]"
+                      onClick={() => handleAdvisorSelect("any")}
+                    >
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#173d77]/5">
+                          <User className="size-6 text-[#173d77]" />
                         </div>
-                        <p className="text-sm text-muted-foreground">{advisor.role}</p>
-                      </div>
-                      <ChevronRight className="size-5 text-muted-foreground" />
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-foreground">Cualquier asesor disponible</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Te asignaremos el primer asesor disponible del área
+                          </p>
+                        </div>
+                        <ChevronRight className="size-5 text-muted-foreground" />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Available advisors */}
+                  {getMatchingAdvisors().map((advisor) => {
+                    const isUnavailable = advisor.is_on_vacation
+
+                    return (
+                      <Card
+                        key={advisor.id}
+                        className={cn(
+                          "border border-slate-200 transition-all",
+                          isUnavailable
+                            ? "cursor-not-allowed opacity-60"
+                            : "cursor-pointer hover:-translate-y-0.5 hover:border-[#173d77]/30 hover:shadow-[0_18px_50px_-30px_rgba(23,61,119,0.4)]",
+                        )}
+                        onClick={() => {
+                          if (!isUnavailable) handleAdvisorSelect(advisor.id)
+                        }}
+                      >
+                        <CardContent className="p-4 flex items-center gap-4">
+                          <Avatar className="h-12 w-12">
+                            <AvatarFallback className={`text-sm font-semibold ${advisor.color}`}>
+                              {advisor.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-semibold text-foreground">{advisor.name}</h4>
+                              {advisor.isPartner && (
+                                <Badge variant="outline" className="text-xs bg-[#173d77]/5 text-[#173d77] border-[#173d77]/15">
+                                  Socio
+                                </Badge>
+                              )}
+                              {isUnavailable && (
+                                <Badge variant="outline" className="text-xs border-slate-200 bg-slate-100 text-slate-500">
+                                  No disponible (Vacaciones)
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{advisor.role}</p>
+                          </div>
+                          <ChevronRight className="size-5 text-muted-foreground" />
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </>
+              )}
             </div>
           </div>
         )}

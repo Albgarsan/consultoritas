@@ -32,20 +32,22 @@ class ConversationViewSet(viewsets.ModelViewSet):
             return Conversation.objects.none()
 
         if getattr(user, "role", None) == "Asesor":
-            queryset = Conversation.objects.filter(
-                Q(conversation_type="Public")
-                | Q(user__isnull=True)
-                | Q(user__businesses__business__responsible_advisor=user)
-            ).distinct()
+            queryset = (
+                Conversation.objects.select_related("user")
+                .prefetch_related("user__businesses__business__responsible_advisor")
+                .all()
+            )
         else:
-            queryset = Conversation.objects.filter(user=user)
+            queryset = Conversation.objects.select_related("user").filter(user=user)
 
         queryset = queryset.order_by("-created_at")
 
         date_param = self.request.query_params.get("date")
         if date_param:
             if date_param == "today":
-                target_date = datetime.timezone.localdate()
+                from django.utils import timezone
+
+                target_date = timezone.localdate()
             else:
                 try:
                     target_date = datetime.datetime.strptime(

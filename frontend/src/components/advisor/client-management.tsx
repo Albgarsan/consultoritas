@@ -20,7 +20,7 @@ import { apiFetch } from "@/lib/api"
 import { useApiData } from "@/lib/use-api"
 import { mutate as globalMutate } from "swr"
 interface GestionClientesProps {
-  onNavigateToMonitor: (clientId: string) => void
+  onNavigateToMonitor: (clientName?: string) => void
 }
 
 const ITEMS_PER_PAGE = 10
@@ -73,6 +73,7 @@ export function GestionClientes({ onNavigateToMonitor }: GestionClientesProps) {
   const [roleFilter, setRoleFilter] = useState("all")
   const [advisorFilter, setAdvisorFilter] = useState("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [newClient, setNewClient] = useState({
     first_name: "",
     last_name: "",
@@ -300,28 +301,32 @@ const triggerDeleteVerification = (client: Client) => {
   const executeDeleteClient = async () => {
     if (!clientToDelete) return
 
+    setIsDeleting(true)
     try {
       const res = await apiFetch(`/api/users/${clientToDelete.id}/`, {
         method: "DELETE",
       })
 
-      if (res.ok) {
-        toast.success("Cliente y datos asociados eliminados del sistema")
-        setIsDeleteModalOpen(false)
-        setClientToDelete(null)
-
-        const currentYear = new Date().getFullYear()
-        await globalMutate("/api/business/companies/")
-        await globalMutate(`/api/documents/tax-calendar/?year=${currentYear}`)
-        await mutateClients()
-
-        window.dispatchEvent(new Event("consultoritas:refresh"))
-      } else {
+      if (!res.ok) {
         const errorData = await res.json().catch(() => ({}))
         throw new Error(errorData.detail || "Error al eliminar cliente")
       }
+
+      toast.success("Cliente y empresa eliminados correctamente")
+      setIsDeleteModalOpen(false)
+      setClientToDelete(null)
+      setConfirmEmailInput("")
+
+      const currentYear = new Date().getFullYear()
+      await globalMutate("/api/business/companies/")
+      await globalMutate(`/api/documents/tax-calendar/?year=${currentYear}`)
+      await mutateClients()
+
+      window.dispatchEvent(new Event("consultoritas:refresh"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al eliminar cliente")
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -642,7 +647,7 @@ const triggerDeleteVerification = (client: Client) => {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => onNavigateToMonitor(client.id)} title="Monitor IA" className="mr-1">
+                  <Button variant="ghost" size="sm" onClick={() => onNavigateToMonitor(`${client.first_name || ''} ${client.last_name || ''}`.trim() || client.email)} title="Monitor IA" className="mr-1">
                     <Bot className="size-4" />
                   </Button>
                   <DropdownMenu>
@@ -778,19 +783,27 @@ const triggerDeleteVerification = (client: Client) => {
               onChange={(e) => setConfirmEmailInput(e.target.value)}
               placeholder="ejemplo@correo.com"
               className="border-rose-300 focus-visible:ring-rose-500"
+              disabled={isDeleting}
             />
           </div>
 
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeleting}>
               Cancelar
             </Button>
             <Button
               variant="destructive"
               onClick={executeDeleteClient}
-              disabled={confirmEmailInput.trim().toLowerCase() !== clientToDelete?.email?.toLowerCase()}
+              disabled={isDeleting || confirmEmailInput.trim().toLowerCase() !== clientToDelete?.email?.toLowerCase()}
             >
-              Entiendo el riesgo, eliminar definitivo
+              {isDeleting ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                "Entiendo el riesgo, eliminar definitivo"
+              )}
             </Button>
           </div>
         </DialogContent>

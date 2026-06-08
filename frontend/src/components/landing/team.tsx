@@ -12,6 +12,8 @@ type TeamMember = {
   email: string;
   initials: string;
   profile_image?: string;
+  is_principal: boolean;
+  specialties: string[];
 };
 
 /** Skeleton placeholder mientras cargan los datos */
@@ -44,27 +46,48 @@ export function TeamSection() {
   );
   const sectionY = useTransform(scrollYProgress, [0, 0.5, 1], [28, 0, -28]);
 
+  const SPECIALTY_MAP: Record<string, string> = {
+    contable: "Contable",
+    laboral: "Laboral",
+    judicial: "Jurídica",
+    fiscal: "Fiscal",
+  };
+
   useEffect(() => {
-    apiFetch('/api/users/advisors/')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setTeam(
-            data
-              .filter((u) => u.role === 'Asesor' || u.is_staff)
-              .map((u) => ({
-                id: String(u.id),
-                name: `${u.first_name || 'Asesor'} ${u.last_name || ''}`.trim(),
-                role: u.role || 'Asesor',
-                email: u.email,
-                initials: (u.first_name || u.email || 'A').slice(0, 2).toUpperCase(),
-                profile_image: u.profile_image || null,
-              })),
-          );
+    async function loadTeam() {
+      try {
+        const res = await apiFetch("/api/users/advisors/");
+        if (res.ok) {
+          const data = await res.json();
+          if (!Array.isArray(data)) {
+            setTeam([]);
+            return;
+          }
+          setTeam(data.map((u: any) => {
+            const rawSpecs: any[] = Array.isArray(u.specialties) ? u.specialties : [];
+            const stringSpecs: string[] = rawSpecs.filter((s: any) => typeof s === "string").map((s: string) => s.toLowerCase());
+            const uniqueSpecs: string[] = Array.from(new Set(stringSpecs));
+            const mappedSpecs: string[] = uniqueSpecs.map((s: string) => SPECIALTY_MAP[s] || s);
+
+            return {
+              id: u.id,
+              name: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.email.split('@')[0],
+              role: u.role || 'Asesor',
+              email: u.email,
+              initials: u.first_name ? u.first_name.substring(0, 2).toUpperCase() : u.email.substring(0, 2).toUpperCase(),
+              profile_image: u.profile_image,
+              is_principal: u.is_principal || false,
+              specialties: mappedSpecs
+            };
+          }));
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Error loading team", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTeam();
   }, []);
 
   return (
@@ -124,7 +147,7 @@ export function TeamSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: false, amount: 0.25 }}
                 transition={{ delay: i * 0.1, duration: 0.6, ease: 'easeOut' }}
-                className="group rounded-[2rem] border border-slate-100 bg-white p-4 transition-all duration-500 hover:shadow-[0_28px_80px_-40px_rgba(23,61,119,0.22)]"
+                className="group rounded-[2rem] border border-slate-100 bg-white p-4 transition-all duration-500"
               >
                 {/* Foto */}
                 <div className="relative h-80 overflow-hidden rounded-[1.5rem] bg-slate-100">
@@ -152,13 +175,32 @@ export function TeamSection() {
 
                   {/* Nombre + rol sobre la imagen */}
                   <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between">
-                    <div>
+                    <div className="flex flex-col gap-1.5">
                       <p className="text-base font-medium leading-tight tracking-tight text-white">
                         {member.name}
                       </p>
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-300">
-                        {member.role}
-                      </p>
+
+                      <div className="flex flex-col gap-1.5 mt-0.5">
+                        {member.is_principal && (
+                          <span className="w-fit rounded bg-[#173d77]/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-sky-200 backdrop-blur-sm border border-sky-400/30">
+                            Socio
+                          </span>
+                        )}
+
+                        {member.specialties && member.specialties.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {member.specialties.map(spec => (
+                              <span key={spec} className="rounded bg-white/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
+                                {spec}
+                              </span>
+                            ))}
+                          </div>
+                        ) : !member.is_principal ? (
+                          <span className="w-fit rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-300 backdrop-blur-sm">
+                            Asesor
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <a
                       href={`mailto:${member.email}`}

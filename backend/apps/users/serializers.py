@@ -193,40 +193,63 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from django.utils.html import escape, strip_tags
+
         password = validated_data.pop("password", None)
         email = validated_data.pop("email")
         validated_data.setdefault("role", "Autónomo")
-        # If no password provided, create user with unusable password and
-        # send a one-time tokenized password setup link instead of emailing a password.
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+        # If no password provided, generate a secure random one and send it via email
+        generated_password = None
+        if not password:
+            generated_password = generate_secure_password(14)
+            password = generated_password
+
+        try:
+            validate_password(password)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
 
         with transaction.atomic():
-            # If password is None, create_user will set_unusable_password()
             user = User.objects.create_user(
                 email=email, password=password, **validated_data
             )
 
-            if not password:
-                # Generate token + uid for password setup and email link
-                token = default_token_generator.make_token(user)
-                uid = urlsafe_base64_encode(force_bytes(user.pk))
-                reset_path = f"/reset-password/confirm/{uid}/{token}"
-                reset_url = frontend_url.rstrip("/") + reset_path
-
-                email_body = (
-                    f"Hola {user.first_name or 'usuario'},\n\n"
-                    "Se ha creado una cuenta para ti en Consultoritas. Para establecer tu contraseña, "
-                    f"por favor visita el siguiente enlace (válido por un solo uso):\n\n{reset_url}\n\n"
-                    "Si no esperabas este correo, ignóralo o contacta con soporte.\n"
-                )
+            if generated_password:
+                greeting_name = escape(user.first_name.strip()) or "usuario"
+                subject = "Bienvenido a Consultoritas - Tus accesos"
+                html_message = f"""
+                <div style="margin:0;padding:0;background-color:#f5f7fb;font-family:Arial, Helvetica, sans-serif;color:#1f2937;">
+                  <div style="max-width:640px;margin:0 auto;padding:40px 20px;">
+                    <div style="background:#ffffff;border-radius:16px;box-shadow:0 10px 30px rgba(15,23,42,0.08);overflow:hidden;">
+                      <div style="background:linear-gradient(135deg,#0f172a,#1d4ed8);padding:28px 32px;color:#ffffff;">
+                        <div style="font-size:28px;font-weight:700;letter-spacing:0.3px;">Consultoritas</div>
+                        <div style="margin-top:8px;font-size:14px;opacity:0.92;">Bienvenido a tu nueva plataforma</div>
+                      </div>
+                      <div style="padding:32px;line-height:1.6;font-size:15px;">
+                        <p style="margin:0 0 16px;">Hola, {greeting_name}.</p>
+                        <p style="margin:0 0 16px;">Tu Asesor ha creado una cuenta para ti en Consultoritas. Aquí tienes tu contraseña temporal para acceder:</p>
+                        <div style="margin:24px 0;padding:18px 20px;border:1px solid #dbe4f0;border-radius:12px;background:#f8fafc;font-family:monospace;font-size:18px;letter-spacing:1px;text-align:center;color:#0f172a;word-break:break-word;">
+                          {generated_password}
+                        </div>
+                        <p style="margin:0 0 12px;color:#374151;">Te recomendamos cambiar esta contraseña por una propia en la sección <strong>Configuración</strong> nada más entrar.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                """.strip()
+                plain_message = strip_tags(html_message)
 
                 def _send_welcome_email():
                     try:
                         send_mail(
-                            subject="Configura tu contraseña en Consultoritas",
-                            message=email_body,
+                            subject=subject,
+                            message=plain_message,
                             from_email=settings.DEFAULT_FROM_EMAIL,
                             recipient_list=[user.email],
+                            html_message=html_message,
                             fail_silently=False,
                         )
                     except Exception:

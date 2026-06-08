@@ -501,7 +501,7 @@ export function AppointmentsManager({
                               <Button variant="ghost" size="icon" className="size-8"><MoreHorizontal className="size-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleConfirmAppointment(app.id)}>Confirmar asistencia</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleConfirmAppointment(app.id)} disabled={app.status === 'confirmed'}>Confirmar asistencia</DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAppointment(app.id)} disabled={isPastAppointment}>Cancelar Cita</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

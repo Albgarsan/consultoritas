@@ -1,0 +1,36 @@
+export const serviceDetails: Record<string, string[]> = {
+  "Asesoría Contable": [
+    "Análisis de la Gestión Contable y administrativa de empresas y profesionales",
+    "Confección y depósito de las cuentas anuales en el Registro Mercantil",
+    "Auditorías contables",
+    "Asesoramiento y gestión contable de empresas",
+    "Preparación de documentación y balances para obtener financiación",
+    "Gestión contable y asesoramiento de franquicias",
+    "Diseño y Puesta en marcha del Plan General de Contabilidad",
+    "Elaboración y presentación de los modelos mensuales, trimestrales y anuales",
+    "Requerimientos e inspecciones de la Agencia Tributaria",
+    "Preparación y control presupuestario",
+  ],
+  "Asesoría Fiscal": [
+    "IVA",
+    "Consultas y confección de impuestos (trimestrales y anuales)",
+    "Trámites ante la Agencia Tributaria",
+    "Alta en Impuestos de Actividades Económicas (IAE)",
+    "Confección del IRPF",
+    "Retención de arrendamiento de locales de negocios",
+    "Recursos de reposición ante la A.E.A.T. o Tribunal Económico Administrativo",
+  ],
+  "Asesoría Jurídica": [
+    "Información y asesoramiento jurídico",
+    "Normativas, leyes y reglamentos en materia de derecho",
+  ],
+  "Asesoría Laboral": [
+    "Realización de contratos para altas de trabajadores",
+    "Régimen general y RETA",
+    "Confección de nóminas",
+    "Elaboración de expedientes para la solicitud de subvenciones",
+    "Presentación de contratos en la oficina de empleo",
+    "Asistencia a inspecciones de trabajo y CEMAC",
+    "Presentación de altas y bajas en Seguridad Social",
+  ],
+};

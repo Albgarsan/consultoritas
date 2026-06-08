@@ -430,8 +430,14 @@ class UserViewSet(viewsets.ModelViewSet):
             if role in ("Autónomo", "Sociedad"):
                 from apps.business.models import UserBusiness
 
+                raw_tax_id = request.data.get("tax_id", None)
+                safe_tax_id = (
+                    str(raw_tax_id)[:100] if raw_tax_id else f"PENDING-{user.id}"[:100]
+                )
+
                 business = Business.objects.create(
                     name=f"{user.get_full_name()}",
+                    tax_id=safe_tax_id,
                     has_employees=request.data.get("has_employees", False),
                     has_office_rent=request.data.get("has_office_rent", False),
                 )

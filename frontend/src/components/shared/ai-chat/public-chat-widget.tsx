@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { apiFetch, parseBackendError } from "@/lib/api"
 import { ChatUI, type AIChatMessage } from "./chat-ui"
+import { serviceDetails } from "@/lib/constants/services"
 
 const PUBLIC_PROMPTS = [
   "¿Qué servicios ofrecéis?",
@@ -33,7 +34,12 @@ export function PublicChatWidget() {
 
   useEffect(() => {
       const mainContent = document.querySelector('main')?.innerText || document.body.innerText;
-      setContextText(mainContent.slice(0, 4000));
+      let servicesText = "\n\n--- CATÁLOGO DETALLADO DE SERVICIOS ---\n";
+      for (const [service, tasks] of Object.entries(serviceDetails)) {
+        servicesText += `${service}: ${tasks.join(", ")}.\n`;
+      }
+      servicesText += "---------------------------------------\n";
+      setContextText((servicesText + mainContent).slice(0, 4000));
   }, [])
 
   const sendMessage = async (rawText: string) => {

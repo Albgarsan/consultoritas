@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from apps.users.models import User
 
@@ -192,7 +193,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     {"scheduled_at": "No se puede porque ya esta ocupado."}
                 )
 
-            local_dt = timezone.localtime(scheduled_at)
+            madrid_tz = ZoneInfo("Europe/Madrid")
+            local_dt = scheduled_at.astimezone(madrid_tz)
             local_time = local_dt.time()
             day_key = [
                 "monday",
@@ -212,13 +214,14 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     return None
 
             def _in_slot_list(slots):
-                cur = local_time.hour * 60 + local_time.minute
+                cur_start = local_time.hour * 60 + local_time.minute
+                cur_end = cur_start + 60  # Appointments are 1 hour long
                 for slot in slots or []:
                     start = _to_minutes(slot.get("start"))
                     end = _to_minutes(slot.get("end"))
                     if start is None or end is None:
                         continue
-                    if start <= cur <= end:
+                    if start <= cur_start and cur_end <= end:
                         return True
                 return False
 

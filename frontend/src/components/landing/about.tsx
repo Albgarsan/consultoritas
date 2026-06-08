@@ -28,8 +28,8 @@ export function AboutSection() {
   const brandScale   = useTransform(scrollYProgress, [0, 1],       [0.88, 1.02]);
 
   const PILLARS = [
-    { icon: Fingerprint, title: 'Trato Humano',   desc: 'No eres un CIF. Eres nuestro socio estratégico.' },
-    { icon: Cpu,         title: 'Precisión Total', desc: 'La IA audita, pero nuestros expertos firman.'   },
+    { icon: Fingerprint, title: 'Eficiencia',   desc: 'Optimizamos la gestión de tu negocio con herramientas avanzadas.' },
+    { icon: ShieldCheck, title: 'Asesoría',     desc: 'Servicio profesional y adaptado a tus necesidades.' },
   ] as const;
 
   return (
@@ -91,20 +91,6 @@ export function AboutSection() {
             />
           </div>
 
-          {/* Badge inferior derecha — legado */}
-          <div className="absolute -bottom-8 -right-4 z-20 flex items-center gap-5 rounded-[2rem] border border-white/80 bg-white px-7 py-5 shadow-[0_22px_60px_-28px_rgba(23,61,119,0.22)] md:-right-8">
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#173d77]/8">
-              <ShieldCheck className="size-7 text-[#173d77]" strokeWidth={1.5} />
-            </div>
-            <div>
-              <p className="text-2xl font-light text-slate-900">
-                +30<span className="font-bold text-[#173d77]"> años</span>
-              </p>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
-                De legado en Sevilla Este
-              </p>
-            </div>
-          </div>
 
           {/* Badge superior izquierda — valoración */}
           <div className="absolute -left-4 -top-5 z-20 flex items-center gap-3 rounded-[1.25rem] border border-white/80 bg-white px-5 py-3.5 shadow-[0_16px_44px_-20px_rgba(23,61,119,0.18)] md:-left-8">
@@ -113,7 +99,6 @@ export function AboutSection() {
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-800">5.0 · Google</p>
-              <p className="text-[10px] text-slate-400">+120 reseñas verificadas</p>
             </div>
           </div>
         </motion.div>
@@ -128,15 +113,15 @@ export function AboutSection() {
           >
             <h2 className="mb-4 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.28em] text-[#173d77]">
               <span className="h-px w-6 bg-[#173d77]" />
-              Nuestra Esencia
+              Nuestra Empresa
             </h2>
             <h3
               className="text-balance text-4xl font-light leading-tight tracking-tight text-slate-900 md:text-5xl"
               style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
             >
-              Legado familiar,{' '}
+              Crecimiento,{' '}
               <br />
-              <span className="font-semibold text-[#173d77]">arquitectura del futuro.</span>
+              <span className="font-semibold text-[#173d77]">desarrollo y evolución.</span>
             </h3>
           </motion.div>
 
@@ -147,9 +132,7 @@ export function AboutSection() {
             transition={{ duration: 0.7, delay: 0.1 }}
             className="text-lg font-light leading-relaxed text-slate-500"
           >
-            Lo que nació como un despacho local en Sevilla Este ha evolucionado hacia un
-            centro de alto rendimiento fiscal. Combinamos tres décadas de experiencia
-            jurídica con modelos avanzados de Inteligencia Artificial.
+            CONSULTORITAS es una empresa consultora experta en el asesoramiento de negocios. Nuestra experiencia nos permite dar un servicio profesional y personalizado, que facilita la adaptación a las necesidades de cada tipo de negocio. Queremos conseguir un trato cercano con el fin de crear una relación que nos acerque a los objetivos marcados.
           </motion.p>
 
           <motion.div
@@ -157,7 +140,7 @@ export function AboutSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="grid gap-8 border-t border-slate-200 pt-8 sm:grid-cols-2"
+            className="grid gap-8 border-t border-slate-200 pt-8 sm:grid-cols-2 max-w-md"
           >
             {PILLARS.map((item) => (
               <div key={item.title} className="group flex flex-col gap-4">

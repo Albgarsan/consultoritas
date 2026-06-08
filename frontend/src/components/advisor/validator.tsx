@@ -801,7 +801,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button className="gap-2" onClick={() => setIsUploadOpen(true)}>
+          <Button className="gap-2 bg-[#173d77] hover:bg-blue-800 text-white" onClick={() => setIsUploadOpen(true)}>
             <Upload className="mr-2 size-4" />
             Subir Factura
           </Button>
@@ -1355,7 +1355,7 @@ export function ValidacionDocumental({ documents = [] }: { documents?: Documento
               <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isUploading}>
+              <Button type="submit" disabled={isUploading} className="bg-[#173d77] hover:bg-blue-800 text-white">
                 {isUploading ? "Subiendo..." : "Subir"}
               </Button>
             </div>

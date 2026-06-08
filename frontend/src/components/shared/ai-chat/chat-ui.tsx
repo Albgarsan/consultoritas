@@ -116,7 +116,7 @@ export function ChatUI({
       <Button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 h-16 w-16 rounded-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-0 shadow-2xl shadow-slate-950/30 ring-1 ring-white/10 transition-transform hover:scale-105"
+        className="fixed bottom-6 right-6 z-50 h-16 w-16 rounded-full bg-[#173d77] p-0 shadow-2xl shadow-blue-900/30 ring-1 ring-white/10 transition-transform hover:scale-105 hover:bg-blue-800"
         aria-label="Abrir asistente IA"
       >
         <div className="relative flex items-center justify-center">
@@ -126,7 +126,7 @@ export function ChatUI({
 
       {isOpen && (
         <Card className="fixed bottom-24 right-6 z-50 flex h-[500px] w-80 flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:w-96">
-          <div className="flex items-center justify-between gap-3 border-b bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-4 py-3 text-white">
+          <div className="flex items-center justify-between gap-3 border-b bg-[#173d77] px-4 py-3 text-white">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-semibold tracking-tight">{title}</h3>
               <p className="mt-0.5 text-xs text-slate-300">Chat inteligente seguro</p>
@@ -225,7 +225,7 @@ export function ChatUI({
                       className={cn(
                         "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm",
                         message.role === "user"
-                          ? "bg-primary text-primary-foreground"
+                          ? "bg-[#173d77] text-white"
                           : "bg-muted text-muted-foreground",
                       )}
                     >
@@ -264,7 +264,7 @@ export function ChatUI({
               <Button
                 type="submit"
                 size="icon"
-                className="h-11 w-11 shrink-0 rounded-full shadow-md"
+                className="h-11 w-11 shrink-0 rounded-full bg-[#173d77] shadow-md hover:bg-blue-800 text-white"
                 disabled={isLoading || !draft.trim()}
                 aria-label="Enviar mensaje"
               >

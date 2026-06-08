@@ -17,6 +17,19 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_advisor_ids(self, obj):
         if not obj.user:
             return []
+
+        prefetched = getattr(obj.user, "_prefetched_objects_cache", {})
+        if "businesses" in prefetched:
+            user_businesses = prefetched["businesses"]
+            return list(
+                {
+                    str(ub.business.responsible_advisor_id)
+                    for ub in user_businesses
+                    if ub.business_id
+                    and getattr(ub.business, "responsible_advisor_id", None)
+                }
+            )
+
         from apps.business.models import Business
 
         businesses = (
@@ -24,7 +37,7 @@ class ConversationSerializer(serializers.ModelSerializer):
             .exclude(responsible_advisor__isnull=True)
             .select_related("responsible_advisor")
         )
-        return list(set(str(b.responsible_advisor.id) for b in businesses))
+        return list({str(b.responsible_advisor_id) for b in businesses})
 
     class Meta:
         model = Conversation

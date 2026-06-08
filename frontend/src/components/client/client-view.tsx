@@ -152,7 +152,7 @@ export function DashboardView({ onNavigate, user, documents = [], stats, calenda
               <SelectItem value="anual">Último Año</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => onNavigate("facturacion")} className="gap-2">
+          <Button onClick={() => onNavigate("facturacion")} className="gap-2 bg-[#173d77] text-white hover:bg-blue-800">
             <Upload className="size-4" />
             Subir Factura
           </Button>
