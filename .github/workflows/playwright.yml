@@ -24,8 +24,12 @@ jobs:
       run: docker compose up -d --build
     - name: Wait for services
       run: |
-        echo "Waiting for services to be healthy..."
-        timeout 120 bash -c 'while ! curl -s http://localhost > /dev/null; do sleep 5; done'
+        echo "Waiting for frontend..."
+        timeout 120 bash -c 'while [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost/login)" != "200" ]; do sleep 5; done'
+        echo "Waiting for backend..."
+        timeout 120 bash -c 'while [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/users/login/)" != "405" ]; do sleep 5; done'
+    - name: Seed Database
+      run: docker compose exec -T backend python manage.py seed_system
     - name: Install Playwright Browsers
       working-directory: ./frontend
       run: npx playwright install --with-deps
