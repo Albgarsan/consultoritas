@@ -155,3 +155,75 @@ class TestAIEngineModels:
             {"message": "Te atiendo humano"},
             format="json",
         )
+
+
+class TestAIExtraCoverage:
+    def test_client_cannot_do_advisor_actions(self, authenticated_client):
+        client, user = authenticated_client
+        conv = baker.make(Conversation, user=user, conversation_type="Client")
+
+        # Un client no puede alternar control
+        res1 = client.post(f"/api/ai/conversations/{conv.id}/toggle_control/")
+        assert res1.status_code == 403
+
+        # Un client no puede marcar leído
+        res2 = client.patch(f"/api/ai/conversations/{conv.id}/mark_read/")
+        assert res2.status_code == 403
+
+        # Un client no puede responder manual
+        res3 = client.post(
+            f"/api/ai/conversations/{conv.id}/advisor_reply/", {"message": "Test"}
+        )
+        assert res3.status_code == 403
+
+    def test_feedback_api(self, authenticated_client, api_client):
+        client, user = authenticated_client
+        conv = baker.make(Conversation, user=user, conversation_type="Client")
+
+        from apps.ai_engine.views import ChatFeedbackAPIView
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+        view = ChatFeedbackAPIView.as_view()
+
+        # Valid feedback
+        request = factory.patch(
+            f"/api/ai/chat/{conv.id}/feedback/",
+            {"rating": 5, "has_incident": True, "incident_notes": "test"},
+        )
+        request.user = user
+        res = view(request, pk=conv.id)
+        assert res.status_code == 200
+
+        # Invalid user
+        other_user = baker.make("users.User")
+        conv2 = baker.make(Conversation, user=other_user, conversation_type="Client")
+        req2 = factory.patch(f"/api/ai/chat/{conv2.id}/feedback/", {"rating": 1})
+        req2.user = user
+        res_forbidden = view(req2, pk=conv2.id)
+        assert res_forbidden.status_code == 403
+
+        # Anonymous user on client chat
+        from django.contrib.auth.models import AnonymousUser
+
+        req_anon = factory.patch(f"/api/ai/chat/{conv.id}/feedback/", {"rating": 1})
+        req_anon.user = AnonymousUser()
+        res_anon = view(req_anon, pk=conv.id)
+        assert res_anon.status_code == 403
+
+    @patch("apps.ai_engine.views.GroqChatService")
+    def test_human_typing_short_circuit(self, mock_svc, authenticated_client):
+        client, user = authenticated_client
+        conv = baker.make(
+            Conversation,
+            user=user,
+            conversation_type="Client",
+            is_human_intervening=True,
+        )
+        res = client.post(
+            "/api/ai/chat/",
+            {"message": "Hola", "conversation_id": str(conv.id)},
+            format="json",
+        )
+        assert res.status_code == 200
+        assert res.data["status"] == "human_typing"

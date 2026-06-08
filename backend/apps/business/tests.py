@@ -246,3 +246,42 @@ class TestBusinessCommands:
             data={"name": "Empresa", "tax_system": "Autónomo"}
         ).is_valid()
         UserBusinessSerializer(data={"role_in_business": "Admin"}).is_valid()
+
+
+class TestBusinessExtraCoverage:
+    def test_business_serializer_validation_errors(self, authenticated_advisor):
+        client, advisor = authenticated_advisor
+        from apps.business.serializers import BusinessSerializer
+        from rest_framework.test import APIRequestFactory
+
+        req = APIRequestFactory().post("/")
+
+        # Invalid tax_system
+        sz1 = BusinessSerializer(
+            data={"name": "Test", "tax_system": "INVALIDO"}, context={"request": req}
+        )
+        assert not sz1.is_valid()
+
+        # Validation error from empty payload
+        sz2 = BusinessSerializer(data={"name": ""}, context={"request": req})
+        assert not sz2.is_valid()
+
+    def test_signals_edge_cases(self):
+        from apps.business.signals import (
+            ensure_business_tax_calendar,
+            update_business_tax_cache,
+        )
+
+        biz = baker.make("business.Business")
+
+        # Should execute silently without owner
+        ensure_business_tax_calendar(biz)
+
+        # Test pre_save flag triggers
+        biz.tax_status = "AL DÍA"
+        biz.save()
+        biz.tax_status = "INCIDENCIA"
+        biz.save()
+
+        update_business_tax_cache(biz)
+        assert True

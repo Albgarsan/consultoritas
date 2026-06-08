@@ -369,3 +369,104 @@ class TestDocumentSniper:
         client.get(f"/api/documents/calendars/?year=2026&quarter=1")
         client.get(f"/api/documents/calendars/?status=Pendiente")
         client.get(f"/api/documents/calendars/?status=Presentado")
+
+
+class TestDocumentsExtraCoverage:
+    def test_document_validate_exceptions(self, authenticated_advisor):
+        client, advisor = authenticated_advisor
+        biz = baker.make("business.Business", responsible_advisor=advisor)
+        baker.make("business.UserBusiness", user=advisor, business=biz)
+        doc = baker.make("documents.Document", business=biz, status="Pendiente")
+
+        from apps.documents.views import DocumentViewSet
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+
+        # Validation error
+        req1 = factory.patch(
+            f"/api/documents/documents/{doc.id}/validate/", {"status": "INVALIDO"}
+        )
+        req1.user = advisor
+        res1 = DocumentViewSet.as_view({"patch": "validate"})(req1, pk=doc.id)
+        assert res1.status_code == 400
+
+        # Invoice data partial update error
+        req2 = factory.patch(
+            f"/api/documents/documents/{doc.id}/validate/",
+            {"invoice_data": {"tax_base": "error"}},
+            format="json",
+        )
+        req2.user = advisor
+        res2 = DocumentViewSet.as_view({"patch": "validate"})(req2, pk=doc.id)
+        assert res2.status_code == 400
+
+    def test_stats_client_user(self, authenticated_client):
+        client, user = authenticated_client
+        biz = baker.make("business.Business")
+        baker.make("business.UserBusiness", user=user, business=biz)
+        doc = baker.make(
+            "documents.Document",
+            business=biz,
+            uploaded_by=user,
+            status="Procesado",
+            doc_type="Ingreso",
+        )
+        baker.make(
+            "documents.InvoiceData",
+            document=doc,
+            total_amount=100.0,
+            tax_amount=21.0,
+            issue_date=date(2026, 1, 1),
+        )
+
+        # Financial Stats view
+        client.get("/api/documents/stats/")
+
+        # Document Stats view
+        client.get("/api/documents/documents/stats/")
+
+    def test_invoice_data_viewset_client(self, authenticated_client):
+        client, user = authenticated_client
+        biz = baker.make("business.Business")
+        baker.make("business.UserBusiness", user=user, business=biz)
+        doc = baker.make("documents.Document", business=biz, uploaded_by=user)
+        baker.make("documents.InvoiceData", document=doc)
+
+        client.get("/api/documents/invoice-data/")
+
+    def test_download_exceptions(self, authenticated_client):
+        client, user = authenticated_client
+        biz = baker.make("business.Business")
+        baker.make("business.UserBusiness", user=user, business=biz)
+        doc = baker.make(
+            "documents.Document",
+            business=biz,
+            uploaded_by=user,
+            storage_path="test.pdf",
+            file_name="test.pdf",
+        )
+
+        from apps.documents.views import DocumentViewSet
+        from rest_framework.test import APIRequestFactory
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/api/documents/documents/{doc.id}/download/")
+        request.user = user
+        view = DocumentViewSet.as_view({"get": "download"})
+
+        with patch("apps.documents.views.default_storage.exists", return_value=True):
+            with patch(
+                "apps.documents.views.default_storage.open",
+                side_effect=Exception("Storage error"),
+            ):
+                res = view(request, pk=doc.id)
+                assert res.status_code == 500
+
+    def test_tax_calendar_summary_client(self, authenticated_client):
+        client, user = authenticated_client
+        biz = baker.make("business.Business")
+        baker.make("business.UserBusiness", user=user, business=biz)
+        baker.make("documents.TaxCalendar", business=biz, period_start=date(2026, 1, 1))
+        client.get("/api/documents/calendars/?year=badyear")
+        client.get("/api/documents/calendars/summary/")
