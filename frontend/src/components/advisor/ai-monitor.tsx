@@ -276,10 +276,6 @@ export function MonitorIA({ initialSearch }: Readonly<{ initialSearch?: string }
     return (
         <div className="space-y-6 h-[calc(100vh-120px)] flex flex-col">
             <div className="space-y-2 shrink-0">
-                <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
-                    <Sparkles className="size-3.5 text-primary" />
-                    Centro de intervención humana
-                </div>
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-foreground">Monitor IA</h2>
                     <p className="text-sm text-muted-foreground">Supervisa conversaciones, filtra clientes y toma el control manual.</p>
