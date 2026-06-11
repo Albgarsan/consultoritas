@@ -1,17 +1,24 @@
 import { test as setup, expect } from '@playwright/test';
-import { execSync } from 'child_process';
 
-const getEmailByRole = (role: string) => {
-  try {
-    return execSync(`docker exec consultoritas_backend python manage.py shell -c "from apps.users.models import User; print(User.objects.filter(role='${role}', is_superuser=False).first().email)"`).toString().trim();
-  } catch (error) {
-    console.error(`Error obteniendo email para rol ${role}:`, error);
-    return "";
+setup('Autenticación de cliente', async ({ page, request }) => {
+  // Obtenemos un asesor del endpoint público
+  const advRes = await request.get('http://127.0.0.1:8000/api/users/advisors/');
+  const advisors = await advRes.json();
+  const advisorEmail = advisors[0].email;
+
+  // Hacemos login como asesor por API para obtener la sesión
+  await request.post('http://127.0.0.1:8000/api/users/login/', {
+    data: { email: advisorEmail, password: 'password123' }
+  });
+
+  // Con la sesión de asesor, consultamos el endpoint de clientes
+  const clientsRes = await request.get('http://127.0.0.1:8000/api/users/clients/');
+  const clients = await clientsRes.json();
+  const clientEmail = clients[0].email;
+
+  if (!clientEmail) {
+    throw new Error("No client email found via API");
   }
-};
-
-setup('Autenticación de cliente', async ({ page }) => {
-  const clientEmail = getEmailByRole('Autónomo') || getEmailByRole('Sociedad');
 
   await page.goto('/login');
   await page.getByLabel('Email', { exact: true }).fill(clientEmail);
@@ -27,8 +34,14 @@ setup('Autenticación de cliente', async ({ page }) => {
   await page.context().storageState({ path: 'playwright/.auth/cliente.json' });
 });
 
-setup('Autenticación de asesor', async ({ page }) => {
-  const advisorEmail = getEmailByRole('Asesor');
+setup('Autenticación de asesor', async ({ page, request }) => {
+  const advRes = await request.get('http://127.0.0.1:8000/api/users/advisors/');
+  const advisors = await advRes.json();
+  const advisorEmail = advisors[0].email;
+
+  if (!advisorEmail) {
+    throw new Error("No advisor email found via API");
+  }
 
   await page.goto('/login');
   await page.getByLabel('Email', { exact: true }).fill(advisorEmail);
