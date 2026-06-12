@@ -13,19 +13,17 @@ test.describe('HU-02: Alta Sincronizada de Empresa y Cliente', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    await dialog.locator('input').nth(0).fill('Nuevo'); // Nombre
-    await dialog.locator('input').nth(1).fill('Cliente E2E'); // Apellidos
-    await dialog.locator('input[type="email"]').fill(`test-${Date.now()}@demo.com`); // Email
+    await dialog.getByLabel('Nombre').fill('Nuevo'); // Nombre
+    await dialog.getByLabel('Apellidos').fill('Cliente E2E'); // Apellidos
+    await dialog.getByLabel('Email').fill(`test-${Date.now()}@demo.com`); // Email
 
-    const switches = dialog.locator('button[role="switch"]');
-    if (await switches.count() > 0) {
-      await switches.nth(0).click(); // ¿Tiene empleados?
-    }
+    const switchEmpleados = dialog.getByRole('switch').first();
+    await expect(switchEmpleados).toBeVisible();
+    await switchEmpleados.click(); // ¿Tiene empleados?
 
     const submitBtn = dialog.getByRole('button', { name: /Crear Cliente/i });
-    if (await submitBtn.isVisible()) {
-      await submitBtn.click();
-    }
+    await expect(submitBtn).toBeVisible();
+    await submitBtn.click();
 
     await expect(page.locator('li[data-sonner-toast]')).toBeVisible({ timeout: 15000 });
   });

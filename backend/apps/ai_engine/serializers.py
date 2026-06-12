@@ -18,14 +18,14 @@ class ConversationSerializer(serializers.ModelSerializer):
         if not obj.user:
             return []
 
-        prefetched = getattr(obj.user, "_prefetched_objects_cache", {})
-        if "businesses" in prefetched:
-            user_businesses = prefetched["businesses"]
+        user_businesses = getattr(obj.user, "businesses", None)
+        if user_businesses is not None:
+            # If prefetched, we can safely iterate
             return list(
                 {
-                    str(ub.business.responsible_advisor_id)
-                    for ub in user_businesses
-                    if ub.business_id
+                    str(getattr(ub.business, "responsible_advisor_id", ""))
+                    for ub in user_businesses.all()
+                    if getattr(ub, "business", None)
                     and getattr(ub.business, "responsible_advisor_id", None)
                 }
             )
@@ -84,7 +84,10 @@ class MessageSerializer(serializers.ModelSerializer):
     def validate_conversation(self, value):
         request = self.context.get("request")
         if request and hasattr(request, "user"):
-            if value.user != request.user and request.user.role != "Asesor":
+            is_auth = getattr(request.user, "is_authenticated", False)
+            role = getattr(request.user, "role", None)
+
+            if value.user != request.user and (not is_auth or role != "Asesor"):
                 raise serializers.ValidationError(
                     "You do not have permission to add messages to this conversation."
                 )

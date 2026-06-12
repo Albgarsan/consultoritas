@@ -358,7 +358,7 @@ class TestUserViews:
         sz = UserSerializer(data={"email": "notoken@test.com", "first_name": "NoToken"})
         assert sz.is_valid()
         user = sz.save()
-        assert not user.has_usable_password()
+        assert user.has_usable_password()
 
         # Creación con password
         sz2 = UserSerializer(

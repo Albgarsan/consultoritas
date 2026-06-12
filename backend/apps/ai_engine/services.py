@@ -89,9 +89,10 @@ class GroqChatService:
 
         messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
         for item in history:
-            if item.role == "User":
+            role_lower = item.role.lower()
+            if role_lower == "user":
                 messages.append({"role": "user", "content": item.content})
-            elif item.role == "Assistant":
+            elif role_lower == "assistant":
                 messages.append({"role": "assistant", "content": item.content})
 
         if not history or history[-1].content != user_message:
@@ -158,24 +159,31 @@ REGLA 4 (DATOS): NO reveles números de clientes. NO inventes servicios que no e
                     if business.responsible_advisor
                     else "Sin asignar"
                 )
+                safe_nif = (
+                    f"***{business.tax_id[-4:]}"
+                    if business.tax_id and len(business.tax_id) >= 4
+                    else "***"
+                )
                 context_lines.append(
-                    f"- {business.name} | NIF: {business.tax_id} | Asesor: {advisor_name}"
+                    f"- {business.name} | NIF: {safe_nif} | Asesor: {advisor_name}"
                 )
 
         if invoices:
             context_lines.append("Facturas recientes (Todos los estados):")
             for invoice in invoices:
+                safe_date = (
+                    invoice.issue_date.strftime("%m/%Y")
+                    if invoice.issue_date
+                    else "N/D"
+                )
                 context_lines.append(
-                    f"- {invoice.document.file_name} | Estado: {invoice.document.status} | Total: {invoice.total_amount or 0} | Fecha: {invoice.issue_date or 'N/D'}"
+                    f"- Doc #{invoice.document.id} | Estado: {invoice.document.status} | Total: Redactado | Fecha: {safe_date}"
                 )
 
         if appointments:
             context_lines.append("Citas futuras:")
             for appointment in appointments:
-                advisor_name = (
-                    appointment.advisor.get_full_name().strip()
-                    or appointment.advisor.email
-                )
+                advisor_name = appointment.advisor.get_full_name().strip() or "Asesor"
                 context_lines.append(
                     f"- {appointment.business.name} | {appointment.scheduled_at.isoformat()} | Asesor: {advisor_name}"
                 )

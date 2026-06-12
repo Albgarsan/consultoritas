@@ -1,7 +1,9 @@
 import logging
+import os
 import random
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from typing import Optional
 
 import requests
 from apps.ai_engine.models import Conversation, Message
@@ -457,7 +459,7 @@ class Command(BaseCommand):
             "Seguimiento contable",
             "Dudas sobre facturación",
         ]
-        for idx in range(10):
+        for _ in range(10):
             business = random.choice(created_businesses)
             advisor = random.choice(advisors)
             client_link = (
@@ -497,7 +499,7 @@ class Command(BaseCommand):
         )
         return get_random_string(length, alphabet)
 
-    def _download_file(self, url: str, file_name: str) -> bytes:
+    def _download_file(self, url: str, file_name: str) -> Optional[bytes]:
         logger = logging.getLogger(__name__)
         try:
             resp = requests.get(url, timeout=20)

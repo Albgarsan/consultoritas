@@ -13,7 +13,7 @@ def api_client():
 
 @pytest.fixture
 def client_user():
-    return baker.make(User, role="Cliente", email="cliente_test@consultoritas.es")
+    return baker.make(User, role="Autónomo", email="cliente_test@consultoritas.es")
 
 
 @pytest.fixture

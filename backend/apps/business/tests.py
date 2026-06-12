@@ -57,16 +57,12 @@ class TestBusinessCommands:
         baker.make("business.Business", responsible_advisor=advisor, _quantity=2)
 
         # Asumimos que el router de DRF registra el endpoint como 'business-list'
-        try:
-            url = reverse("business-list")
-            response = client.get(url)
-            assert response.status_code == 200
-            # Si la vista devuelve paginación, los resultados están en 'results'
-            data = response.data.get("results", response.data)
-            assert len(data) >= 2
-        except Exception:
-            # Fallback en caso de que el nombre del reverse en urls.py sea distinto
-            pass
+        url = reverse("business-list")
+        response = client.get(url)
+        assert response.status_code == 200
+        # Si la vista devuelve paginación, los resultados están en 'results'
+        data = response.data.get("results", response.data)
+        assert len(data) >= 2
 
     def test_business_full_crud_flow(self, authenticated_advisor):
         """Simula el flujo completo de un Asesor gestionando un Negocio"""

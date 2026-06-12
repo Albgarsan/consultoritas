@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { CalendarClock, Search, MessageSquare } from "lucide-react"
 import { apiFetch, parseBackendError } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
@@ -30,13 +30,15 @@ function extractArrayData(rawData: any): any[] {
 }
 
 function formatDate(value: string) {
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return "Invalid date"
   return new Intl.DateTimeFormat("es-ES", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value))
+  }).format(d)
 }
 
 export function ChatHistoryView() {
@@ -46,6 +48,7 @@ export function ChatHistoryView() {
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const loadMessagesRequestIdRef = useRef(0)
 
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
@@ -81,13 +84,18 @@ export function ChatHistoryView() {
 
   const loadMessages = async (conversationId: string) => {
     setIsLoadingMessages(true)
+    const requestId = ++loadMessagesRequestIdRef.current
     try {
       const response = await apiFetch(`/api/ai/messages/?conversation=${conversationId}`)
+      if (requestId !== loadMessagesRequestIdRef.current) return
+
       if (!response.ok) {
         throw new Error("No se pudo cargar el historial")
       }
 
       const rawData = await response.json()
+      if (requestId !== loadMessagesRequestIdRef.current) return
+
       const dataArray = extractArrayData(rawData) as Message[]
       setMessages(
         dataArray
@@ -95,10 +103,13 @@ export function ChatHistoryView() {
           .sort((left, right) => new Date(left.sent_at).getTime() - new Date(right.sent_at).getTime()),
       )
     } catch (error) {
+      if (requestId !== loadMessagesRequestIdRef.current) return
       toast.error(error instanceof Error ? parseBackendError(error.message) : "No se pudo cargar el historial")
       setMessages([])
     } finally {
-      setIsLoadingMessages(false)
+      if (requestId === loadMessagesRequestIdRef.current) {
+        setIsLoadingMessages(false)
+      }
     }
   }
 

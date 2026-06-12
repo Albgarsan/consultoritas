@@ -83,7 +83,7 @@ export function ClientChatWidget() {
     void syncConversationMessages(conversationId)
     pollingRef.current = window.setInterval(() => {
       void syncConversationMessages(conversationId)
-    }, 3000)
+    }, 5000)
 
     return () => {
       if (pollingRef.current) {

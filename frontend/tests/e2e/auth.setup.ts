@@ -3,18 +3,26 @@ import { test as setup, expect } from '@playwright/test';
 setup('Autenticación de cliente', async ({ page, request }) => {
   // Obtenemos un asesor del endpoint público
   const advRes = await request.get('http://127.0.0.1:8000/api/users/advisors/');
-  const advisors = await advRes.json();
-  const advisorEmail = advisors[0].email;
+  const advRaw = await advRes.json();
+  const advisors = Array.isArray(advRaw) ? advRaw : (advRaw.results || []);
+  const advisorEmail = advisors[0]?.email;
 
   // Hacemos login como asesor por API para obtener la sesión
-  await request.post('http://127.0.0.1:8000/api/users/login/', {
+  const loginRes = await request.post('http://127.0.0.1:8000/api/users/login/', {
     data: { email: advisorEmail, password: 'password123' }
   });
+  const loginData = await loginRes.json();
+  const token = loginData.access || loginData.token || '';
 
   // Con la sesión de asesor, consultamos el endpoint de clientes
-  const clientsRes = await request.get('http://127.0.0.1:8000/api/users/clients/');
-  const clients = await clientsRes.json();
-  const clientEmail = clients[0].email;
+  const clientsRes = await request.get('http://127.0.0.1:8000/api/users/clients/', {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  const clientsRaw = await clientsRes.json();
+  const clients = Array.isArray(clientsRaw) ? clientsRaw : (clientsRaw.results || []);
+  const clientEmail = clients[0]?.email;
 
   if (!clientEmail) {
     throw new Error("No client email found via API");
@@ -36,8 +44,9 @@ setup('Autenticación de cliente', async ({ page, request }) => {
 
 setup('Autenticación de asesor', async ({ page, request }) => {
   const advRes = await request.get('http://127.0.0.1:8000/api/users/advisors/');
-  const advisors = await advRes.json();
-  const advisorEmail = advisors[0].email;
+  const advRaw = await advRes.json();
+  const advisors = Array.isArray(advRaw) ? advRaw : (advRaw.results || []);
+  const advisorEmail = advisors[0]?.email;
 
   if (!advisorEmail) {
     throw new Error("No advisor email found via API");

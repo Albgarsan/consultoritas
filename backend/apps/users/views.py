@@ -431,6 +431,8 @@ class UserViewSet(viewsets.ModelViewSet):
                 from apps.business.models import UserBusiness
 
                 raw_tax_id = request.data.get("tax_id", None)
+                if raw_tax_id is not None:
+                    raw_tax_id = str(raw_tax_id).strip()
                 safe_tax_id = (
                     str(raw_tax_id)[:100] if raw_tax_id else f"PENDING-{user.id}"[:100]
                 )

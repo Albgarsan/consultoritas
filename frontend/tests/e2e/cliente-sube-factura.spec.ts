@@ -24,6 +24,6 @@ test.describe('HU-06a: Cliente Sube Factura', () => {
 
     await dialog.getByRole('button', { name: /Subir factura/i }).last().click();
 
-    await expect(page.locator('li[data-sonner-toast]')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('li[data-sonner-toast]', { hasText: /Factura|éxito/i })).toBeVisible({ timeout: 20000 });
   });
 });

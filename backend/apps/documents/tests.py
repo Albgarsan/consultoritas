@@ -141,7 +141,7 @@ class TestDocumentViews:
         assert "totals" in response.data
         assert "trends" in response.data
         # Se ha insertado 1 ingreso de 1000€
-        assert response.data["totals"]["ingresos"] == 210.0
+        assert response.data["totals"]["ingresos"] == 1000.0
 
     def test_document_deletion(self, authenticated_client):
         """Verifica que un documento puede ser borrado de la base de datos"""
@@ -256,7 +256,7 @@ class TestDocumentMassiveCoverage:
 class TestDocumentSniper:
     def test_download_document_variations(self, authenticated_client):
         """Fuerza la descarga saltándose el enrutador HTTP de DRF"""
-        client, user = authenticated_client
+        _client, user = authenticated_client
         biz = baker.make("business.Business")
         baker.make(
             "business.UserBusiness", user=user, business=biz, role_in_business="Admin"
@@ -366,9 +366,9 @@ class TestDocumentSniper:
 
         # 2. Barre los filtros del Calendario Fiscal (Líneas 510-545)
         client.get(f"/api/documents/calendars/?business_id={biz.id}&year=2026")
-        client.get(f"/api/documents/calendars/?year=2026&quarter=1")
-        client.get(f"/api/documents/calendars/?status=Pendiente")
-        client.get(f"/api/documents/calendars/?status=Presentado")
+        client.get("/api/documents/calendars/?year=2026&quarter=1")
+        client.get("/api/documents/calendars/?status=Pendiente")
+        client.get("/api/documents/calendars/?status=Presentado")
 
 
 class TestDocumentsExtraCoverage:
@@ -436,7 +436,7 @@ class TestDocumentsExtraCoverage:
         client.get("/api/documents/invoice-data/")
 
     def test_download_exceptions(self, authenticated_client):
-        client, user = authenticated_client
+        _client, user = authenticated_client
         biz = baker.make("business.Business")
         baker.make("business.UserBusiness", user=user, business=biz)
         doc = baker.make(

@@ -207,7 +207,7 @@ class ChatAPIView(APIView):
                 "Chat endpoint failed for conversation %s", conversation.id
             )
             return Response(
-                {"error": str(exc)},
+                {"error": "Ocurrió un error interno en el servidor."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

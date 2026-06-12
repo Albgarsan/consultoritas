@@ -43,9 +43,11 @@ class TestAIEngineModels:
 
     def test_get_conversations_unauthorized(self, api_client):
         """Un usuario anónimo (sin token) no puede listar conversaciones privadas"""
+        from django.urls.exceptions import NoReverseMatch
+
         try:
             url = reverse("conversation-list")
-        except Exception:
+        except NoReverseMatch:
             url = "/api/ai/conversations/"
 
         response = api_client.get(url)
@@ -69,8 +71,7 @@ class TestAIEngineModels:
         url = "/api/ai/chat/"
         response = api_client.post(url, {"message": "Hola"}, format="json")
 
-        if response.status_code != 404:
-            assert response.status_code in [200, 201]
+        assert response.status_code in [200, 201]
 
     def test_list_and_retrieve_conversations(self, authenticated_client):
         """Cubre la serialización y listado de chats del usuario"""
@@ -79,8 +80,10 @@ class TestAIEngineModels:
         baker.make(Message, conversation=conv, role="assistant", content="Test")
 
         url = "/api/ai/conversations/"
-        client.get(url)
-        client.get(f"{url}{conv.id}/")
+        res1 = client.get(url)
+        assert res1.status_code == 200
+        res2 = client.get(f"{url}{conv.id}/")
+        assert res2.status_code == 200
 
     def test_advisor_takes_control(self, authenticated_advisor, client_user):
         """Simula al asesor silenciando alertas y tomando el control del chat"""
@@ -94,9 +97,10 @@ class TestAIEngineModels:
         )
 
         url = f"/api/ai/conversations/{conv.id}/"
-        client.patch(
+        res = client.patch(
             url, {"is_human_intervening": True, "unread_alerts": False}, format="json"
         )
+        assert res.status_code == 200
 
     @patch("apps.ai_engine.views.GroqChatService")
     def test_conversation_history_and_messaging(self, mock_svc, authenticated_client):
@@ -111,14 +115,17 @@ class TestAIEngineModels:
         mock_svc.return_value.process_chat_message.return_value = mock_result
 
         # Chat POST
-        client.post(
+        res1 = client.post(
             "/api/ai/chat/",
             {"message": "Hola", "conversation_id": str(conv.id)},
             format="json",
         )
+        assert res1.status_code == 200
         # Historicos
-        client.get(f"/api/ai/conversations/{conv.id}/")
-        client.get("/api/ai/conversations/")
+        res2 = client.get(f"/api/ai/conversations/{conv.id}/")
+        assert res2.status_code == 200
+        res3 = client.get("/api/ai/conversations/")
+        assert res3.status_code == 200
 
     @patch("apps.ai_engine.views.GroqChatService")
     def test_security_alert_trigger(self, mock_svc, authenticated_client):
@@ -132,11 +139,12 @@ class TestAIEngineModels:
         }
         mock_svc.return_value.process_chat_message.return_value = mock_result
 
-        client.post(
+        res = client.post(
             "/api/ai/chat/",
             {"message": "Hack", "conversation_id": str(conv.id)},
             format="json",
         )
+        assert res.status_code == 200
 
     def test_advisor_actions(self, authenticated_advisor, client_user):
         """Barre los métodos del Asesor: alternar control y responder manual"""
@@ -148,13 +156,20 @@ class TestAIEngineModels:
             unread_alerts=True,
         )
 
-        client.post(f"/api/ai/conversations/{conv.id}/toggle_control/", format="json")
-        client.patch(f"/api/ai/conversations/{conv.id}/mark_read/", format="json")
-        client.post(
+        res1 = client.post(
+            f"/api/ai/conversations/{conv.id}/toggle_control/", format="json"
+        )
+        assert res1.status_code == 200
+        res2 = client.patch(
+            f"/api/ai/conversations/{conv.id}/mark_read/", format="json"
+        )
+        assert res2.status_code == 200
+        res3 = client.post(
             f"/api/ai/conversations/{conv.id}/advisor_reply/",
             {"message": "Te atiendo humano"},
             format="json",
         )
+        assert res3.status_code == 201
 
 
 class TestAIExtraCoverage:
