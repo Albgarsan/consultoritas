@@ -14,12 +14,19 @@ test.describe('HU-01: Acceso Seguro y Control de Identidad', () => {
     await expect(toastError).toBeVisible({ timeout: 10000 });
   });
 
-  test('Permite cerrar sesión correctamente', async ({ page }) => {
+  test('Permite cerrar sesión correctamente', async ({ page, request }) => {
+    const advRes = await request.get('http://127.0.0.1:8000/api/users/advisors/');
+    const advRaw = await advRes.json();
+    const advisors = Array.isArray(advRaw) ? advRaw : (advRaw.results || []);
+    const email = advisors[0]?.email;
+
+    if (!email) throw new Error('No advisor email found');
+
     await page.goto('/login');
-    await page.getByLabel('Email', { exact: true }).fill('cliente1@demo.com');
+    await page.getByLabel('Email', { exact: true }).fill(email);
     await page.getByLabel('Contraseña', { exact: true }).fill('password123');
     await page.getByRole('button', { name: /Entrar al Portal/i }).click();
-    await page.waitForURL('**/cliente**', { timeout: 15000 });
+    await page.waitForURL('**/asesor**', { timeout: 15000 });
 
     await page.getByRole('button', { name: /Salir/i }).click();
     await page.waitForURL('**/', { timeout: 10000 });

@@ -10,7 +10,7 @@ test.describe('HU-03: Agenda Personal de Citas sin Solapamientos', () => {
 
     await expect(page.getByRole('heading', { name: /Citas|Agenda/i })).toBeVisible();
 
-    const nuevaCitaBtn = page.getByRole('button', { name: /Nueva Cita/i });
+    const nuevaCitaBtn = page.getByRole('button', { name: /Crear Cita Manual/i });
     await expect(nuevaCitaBtn).toBeVisible();
     await nuevaCitaBtn.click();
     await expect(page.getByRole('dialog')).toBeVisible();

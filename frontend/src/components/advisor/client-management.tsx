@@ -470,16 +470,16 @@ const triggerDeleteVerification = (client: Client) => {
             </DialogHeader>
             <form onSubmit={handleAddClient} className="space-y-4">
               <div className="space-y-2">
-                <Label>Nombre</Label>
-                <Input value={newClient.first_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, first_name: e.target.value })} required />
+                <Label htmlFor="add-first-name">Nombre</Label>
+                <Input id="add-first-name" value={newClient.first_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, first_name: e.target.value })} required />
               </div>
               <div className="space-y-2">
-                <Label>Apellidos</Label>
-                <Input value={newClient.last_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, last_name: e.target.value })} required />
+                <Label htmlFor="add-last-name">Apellidos</Label>
+                <Input id="add-last-name" value={newClient.last_name} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, last_name: e.target.value })} required />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={newClient.email} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, email: e.target.value })} required />
+                <Label htmlFor="add-email">Email</Label>
+                <Input id="add-email" type="email" value={newClient.email} onChange={(e: ChangeEvent<HTMLInputElement>) => setNewClient({ ...newClient, email: e.target.value })} required />
               </div>
               <div className="space-y-2">
                 <Label>Contraseña</Label>
