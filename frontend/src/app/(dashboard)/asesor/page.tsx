@@ -57,6 +57,8 @@ export default function AdvisorPage() {
   const router = useRouter()
   const [view, setView] = useState("dashboard")
 
+  const [monitorSearch, setMonitorSearch] = useState("")
+
   // Consumo reactivo del perfil del asesor mediante SWR unificado
   const { data: user, error: authError, mutate: mutateUser, isLoading } = useApiData<{
     id?: string
@@ -128,7 +130,10 @@ export default function AdvisorPage() {
           )}
           {view === "clientes" && (
             <Suspense fallback={<ClientsSkeleton />}>
-              <GestionClientes onNavigateToMonitor={() => setView("monitor-ia")} />
+              <GestionClientes onNavigateToMonitor={(clientName?: string) => {
+                if (clientName) setMonitorSearch(clientName)
+                setView("monitor-ia")
+              }} />
             </Suspense>
           )}
           {view === "validacion" && (
@@ -138,7 +143,7 @@ export default function AdvisorPage() {
           )}
           {view === "monitor-ia" && (
             <Suspense fallback={<DashboardSkeleton />}>
-              <MonitorIA />
+              <MonitorIA initialSearch={monitorSearch} />
             </Suspense>
           )}
           {view === "settings" && (

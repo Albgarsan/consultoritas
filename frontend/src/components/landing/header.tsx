@@ -42,7 +42,7 @@ export function Header({ onNavigate, onAccessClick }: HeaderProps) {
           {/* Logo — ligeramente aumentado y clickeable */}
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="origin-left transition-transform duration-300 hover:scale-[1.04] focus:outline-none"
+            className="origin-left transition-transform duration-300 hover:scale-[1.04] outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#173d77] flex items-center gap-3"
             aria-label="Volver al inicio"
           >
             <ConsultoritasLogo variant="header" />

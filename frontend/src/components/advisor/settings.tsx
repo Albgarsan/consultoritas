@@ -493,6 +493,21 @@ export function AdvisorSettings() {
                             })
                           }}
                         />
+                        <span className="text-muted-foreground text-xs uppercase font-medium">a</span>
+                        <Input
+                          type="time"
+                          className="w-28"
+                          disabled={!(cfg?.enabled ?? true)}
+                          value={slots[0]?.end || "18:00"}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setWorkSchedule((prev) => {
+                              const nextSlots = [...(prev[day.key]?.slots || [{ start: "08:00", end: "18:00" }])]
+                              nextSlots[0] = { ...(nextSlots[0] || { start: "08:00", end: "18:00" }), end: value }
+                              return { ...prev, [day.key]: { ...(prev[day.key] || { enabled: true, slots: [] }), slots: nextSlots } }
+                            })
+                          }}
+                        />
 
                         {!hasSecond ? (
                           <Button

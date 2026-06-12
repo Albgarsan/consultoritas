@@ -4,8 +4,6 @@ import { useMemo, useState } from "react"
 import { FiscalHealthCards } from "../shared/stat-cards"
 import { IncomeExpenseChart } from "../shared/chart/revenue"
 import { IVAComparisonChart } from "../shared/chart/tax-comparison"
-import { PremiumAIChat } from "@/components/shared/ai/full-chat"
-import { NovedadesFiscales } from "../shared/news-feed"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { type DocumentoFacturacion, type TaxCalendarEntry } from "@/lib/api"
@@ -154,7 +152,7 @@ export function DashboardView({ onNavigate, user, documents = [], stats, calenda
               <SelectItem value="anual">Último Año</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => onNavigate("facturacion")} className="gap-2">
+          <Button onClick={() => onNavigate("facturacion")} className="gap-2 bg-[#173d77] text-white hover:bg-blue-800">
             <Upload className="size-4" />
             Subir Factura
           </Button>
@@ -162,8 +160,6 @@ export function DashboardView({ onNavigate, user, documents = [], stats, calenda
       </div>
 
       <FiscalHealthCards stats={stats} />
-
-      <NovedadesFiscales />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <IncomeExpenseChart period={selectedPeriod} stats={stats} isLoading={isLoading} />
@@ -212,10 +208,6 @@ export function DashboardView({ onNavigate, user, documents = [], stats, calenda
           </div>
         </CardContent>
       </Card>
-
-      <div className="grid gap-6 lg:grid-cols-1">
-        <PremiumAIChat />
-      </div>
     </div>
   )
 }

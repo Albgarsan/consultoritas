@@ -414,7 +414,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
           <p className="text-muted-foreground">Gestiona tus facturas emitidas y recibidas.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button className="gap-2 bg-[#0a1128] text-white hover:bg-[#12244a]" onClick={() => setCreateOpen(true)}>
+          <Button className="gap-2 bg-[#173d77] text-white hover:bg-blue-800" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
             Subir factura
           </Button>
@@ -591,7 +591,7 @@ export function FacturacionView({ documents = [], businessId }: { documents?: Bi
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button onClick={handleCreateInvoice} disabled={isCreating} className="gap-2 bg-[#0a1128] text-white hover:bg-[#12244a]">
+              <Button onClick={handleCreateInvoice} disabled={isCreating} className="gap-2 bg-[#173d77] text-white hover:bg-blue-800">
                 {isCreating ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 Subir factura
               </Button>

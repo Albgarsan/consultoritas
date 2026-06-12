@@ -7,11 +7,31 @@ from pgvector.django import VectorField
 
 
 class Conversation(models.Model):
+    CONVERSATION_TYPE_CHOICES = [
+        ("Public", "Public"),
+        ("Client", "Client"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="conversations"
+        User,
+        on_delete=models.CASCADE,
+        related_name="conversations",
+        null=True,
+        blank=True,
+    )
+    conversation_type = models.CharField(
+        max_length=20,
+        choices=CONVERSATION_TYPE_CHOICES,
+        default="Public",
     )
     title = models.CharField(max_length=255, null=True, blank=True)
+    rating = models.IntegerField(null=True, blank=True)
+    has_incident = models.BooleanField(default=False)
+    incident_notes = models.TextField(null=True, blank=True)
+    security_alert = models.BooleanField(default=False)
+    is_human_intervening = models.BooleanField(default=False)
+    unread_alerts = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

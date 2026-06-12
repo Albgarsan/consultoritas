@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { MapPin, Mail, MessageSquare, Clock, ExternalLink } from 'lucide-react';
+import { MapPin, Mail, Phone, Clock, ExternalLink } from 'lucide-react';
 
 export function ContactSection() {
   const ref = useRef<HTMLElement>(null);
@@ -86,23 +86,17 @@ export function ContactSection() {
               </div>
 
               <div className="space-y-3">
-                {/*
-                  ✅ BUG FIX: botón WhatsApp ahora usa fondo BLANCO con texto azul
-                  (antes era bg-[#173d77] sobre bg-[#173d77] = invisible)
-                */}
                 <a
-                  href="https://wa.me/34954123456"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="tel:+34954123456"
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-[0.85rem] bg-white text-sm font-semibold text-[#173d77] shadow-[0_12px_30px_-18px_rgba(0,0,0,0.35)] transition-all duration-200 hover:bg-slate-50 hover:shadow-[0_14px_34px_-18px_rgba(0,0,0,0.4)]"
                 >
-                  <MessageSquare className="size-4" strokeWidth={2} />
-                  WhatsApp Directo
+                  <Phone className="size-4" strokeWidth={2} />
+                  Llamar (+34 954 12 34 56)
                 </a>
 
                 {/* Botón email: outline sobre fondo azul */}
                 <a
-                  href="mailto:info@consultoritas.es"
+                  href="mailto:consultoritas.app@gmail.com"
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-[0.85rem] border border-white/22 text-sm text-white transition-colors hover:bg-white/8"
                 >
                   <Mail className="size-4" strokeWidth={1.5} />

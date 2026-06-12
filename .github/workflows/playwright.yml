@@ -1,0 +1,68 @@
+name: Playwright Tests
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Environment
+      run: |
+        cp .env.example .env
+        sed -i 's/<your-generated-secret>/django-insecure-test-key-for-ci-only/' .env
+        sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:password@db:5432/consultoritas|' .env
+
+        cat << 'EOF' > docker-compose.ci.yml
+        services:
+          db:
+            image: pgvector/pgvector:pg16
+            environment:
+              POSTGRES_USER: postgres
+              POSTGRES_PASSWORD: password
+              POSTGRES_DB: consultoritas
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U postgres"]
+              interval: 5s
+              timeout: 5s
+              retries: 5
+          backend:
+            depends_on:
+              db:
+                condition: service_healthy
+          worker:
+            depends_on:
+              db:
+                condition: service_healthy
+        EOF
+    - uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+    - name: Start Application using Docker Compose
+      run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+    - name: Wait for services
+      run: |
+        echo "Waiting for frontend..."
+        timeout 120 bash -c 'while [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost/login)" != "200" ]; do sleep 5; done'
+        echo "Waiting for backend..."
+        timeout 120 bash -c 'while [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/users/login/)" != "405" ]; do sleep 5; done'
+    - name: Seed Database
+      run: docker compose exec -T backend python manage.py seed_system
+    - name: Install Playwright Browsers
+      working-directory: ./frontend
+      run: npx playwright install --with-deps
+    - name: Run Playwright tests
+      working-directory: ./frontend
+      run: npx playwright test
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report
+        path: frontend/playwright-report/
+        retention-days: 30
