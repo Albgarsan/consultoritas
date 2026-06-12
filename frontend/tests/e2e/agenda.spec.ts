@@ -14,6 +14,6 @@ test.describe('HU-03: Agenda Personal de Citas sin Solapamientos', () => {
     await expect(nuevaCitaBtn).toBeVisible();
     await nuevaCitaBtn.click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('button', { name: /Cancelar|Cerrar/i }).click();
+    await page.keyboard.press('Escape');
   });
 });
